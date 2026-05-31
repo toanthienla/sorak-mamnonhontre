@@ -1,0 +1,216 @@
+// Prisma schema — Sorak API Option A
+// accounts = auth only | teachers = GV/BGH profile | students = profile + linked account
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// ─── NHÓM 1: Tài khoản & Phân quyền ─────────────────────────────────────────
+
+model Account {
+    account_id     Int       @id @default(autoincrement())
+    role           String    @db.VarChar(20) // BGH | GV | PH
+    password_hash  String    @db.VarChar(255)
+    is_active      Boolean   @default(true)
+    otp_code       String?   @db.VarChar(10)
+    otp_expires_at DateTime?
+    deleted_at     DateTime?
+    created_at     DateTime  @default(now())
+    updated_at     DateTime  @updatedAt
+
+    teacher Teacher?
+    student Student?
+
+    created_students Student[] @relation("StudentCreatedBy")
+    updated_students Student[] @relation("StudentUpdatedBy")
+
+    @@index([deleted_at])
+    @@map("accounts")
+}
+
+model Teacher {
+    teacher_id      Int       @id @default(autoincrement())
+    account_id      Int?      @unique
+    full_name       String    @db.VarChar(150)
+    email           String    @unique @db.VarChar(150) // login identifier BGH/GV
+    phone           String?   @db.VarChar(20)
+    gender          String?   @db.VarChar(10)
+    date_of_birth   DateTime?
+    address         String?   @db.VarChar(500)
+    position        String?   @db.VarChar(100) // Giáo viên | Hiệu trưởng | Hiệu phó | Kế toán...
+    work_start_date DateTime?
+    qualification   String?   @db.VarChar(255)
+    work_status     String    @default("Đang làm việc") @db.VarChar(50)
+    deleted_at      DateTime?
+    created_at      DateTime  @default(now())
+    updated_at      DateTime  @updatedAt
+
+    account         Account?       @relation(fields: [account_id], references: [account_id])
+    teacher_classes TeacherClass[]
+
+    @@index([deleted_at])
+    @@index([email])
+    @@map("teachers")
+}
+
+// ─── NHÓM 2: Cấu trúc trường ────────────────────────────────────────────────
+
+model SchoolYear {
+    school_year_id           Int       @id @default(autoincrement())
+    name                     String    @unique @db.VarChar(20)
+    start_date               DateTime
+    end_date                 DateTime
+    status                   String    @default("inactive") @db.VarChar(20)
+    deleted_at               DateTime?
+
+    semesters                Semester[]
+    classes                  Class[]
+    student_year_enrollments StudentYearEnrollment[]
+
+    @@map("school_years")
+}
+
+model Semester {
+    semester_id     Int      @id @default(autoincrement())
+    school_year_id  Int
+    semester_number Int
+    start_date      DateTime
+    end_date        DateTime
+
+    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+
+    @@unique([school_year_id, semester_number])
+    @@map("semesters")
+}
+
+model Class {
+    class_id       Int       @id @default(autoincrement())
+    class_name     String    @db.VarChar(100)
+    school_year_id Int
+    age_group      String?   @db.VarChar(30)
+    room           String?   @db.VarChar(50)
+    created_at     DateTime  @default(now())
+    deleted_at     DateTime?
+
+    school_year     SchoolYear     @relation(fields: [school_year_id], references: [school_year_id])
+    teacher_classes TeacherClass[]
+    student_classes StudentClass[]
+
+    @@index([school_year_id])
+    @@index([deleted_at])
+    @@map("classes")
+}
+
+model TeacherClass {
+    teacher_class_id Int       @id @default(autoincrement())
+    teacher_id       Int
+    class_id         Int
+    assigned_at      DateTime  @default(now())
+    removed_at       DateTime?
+
+    teacher Teacher @relation(fields: [teacher_id], references: [teacher_id])
+    class   Class   @relation(fields: [class_id], references: [class_id])
+
+    @@unique([teacher_id, class_id])
+    @@map("teacher_classes")
+}
+
+// ─── NHÓM 3: Hồ sơ trẻ ──────────────────────────────────────────────────────
+
+model Student {
+    student_id               Int       @id @default(autoincrement())
+    account_id               Int?      @unique // nullable — tạo khi cấp tài khoản PH
+    student_id_card_number   String    @unique @db.VarChar(20)
+    full_name                String    @db.VarChar(150)
+    date_of_birth            DateTime
+    gender                   String    @db.VarChar(10)
+    grade_level              String?   @db.VarChar(30)
+    student_status           String    @default("Đang học") @db.VarChar(50)
+    enrollment_date          DateTime?
+    new_admission_date       DateTime?
+    is_new_admission         Boolean   @default(false)
+    order_number             Int?
+    ethnicity                String?   @db.VarChar(50)
+    nationality              String?   @db.VarChar(50)
+    religion                 String?   @db.VarChar(50)
+    area_type                String?   @db.VarChar(20)
+    blood_type               String?   @db.VarChar(5)
+    contact_phone            String?   @db.VarChar(20)
+    permanent_province       String?   @db.VarChar(100)
+    permanent_ward           String?   @db.VarChar(100)
+    permanent_address_detail String?   @db.VarChar(500)
+    current_address          String?   @db.VarChar(500)
+    hometown_province        String?   @db.VarChar(100)
+    hometown_ward            String?   @db.VarChar(100)
+    birth_place              String?   @db.VarChar(255)
+    photo_url                String?   @db.VarChar(500)
+    created_by               Int?
+    updated_by               Int?
+    created_at               DateTime  @default(now())
+    updated_at               DateTime  @updatedAt
+    deleted_at               DateTime?
+
+    account            Account?  @relation(fields: [account_id], references: [account_id])
+    created_by_account Account?  @relation("StudentCreatedBy", fields: [created_by], references: [account_id])
+    updated_by_account Account?  @relation("StudentUpdatedBy", fields: [updated_by], references: [account_id])
+
+    parents                  Parent[]
+    student_classes          StudentClass[]
+    student_year_enrollments StudentYearEnrollment[]
+
+    @@index([deleted_at])
+    @@index([full_name])
+    @@map("students")
+}
+
+// ─── NHÓM 4: Phụ huynh ──────────────────────────────────────────────────────
+
+model Parent {
+    parent_id    Int      @id @default(autoincrement())
+    student_id   Int
+    full_name    String   @db.VarChar(150)
+    phone        String?  @db.VarChar(20)
+    relationship String?  @db.VarChar(50)
+    created_at   DateTime @default(now())
+
+    student Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+
+    @@index([student_id])
+    @@map("parents")
+}
+
+// ─── NHÓM 5: Phân lớp ───────────────────────────────────────────────────────
+
+model StudentClass {
+    student_class_id Int       @id @default(autoincrement())
+    student_id       Int
+    class_id         Int
+    enrolled_date    DateTime  @default(now())
+    left_date        DateTime?
+    student_status   String    @default("Đang học") @db.VarChar(50)
+
+    student Student @relation(fields: [student_id], references: [student_id])
+    class   Class   @relation(fields: [class_id], references: [class_id])
+
+    @@unique([student_id, class_id])
+    @@map("student_classes")
+}
+
+model StudentYearEnrollment {
+    id             Int      @id @default(autoincrement())
+    student_id     Int
+    school_year_id Int
+    grade_level    String?  @db.VarChar(30)
+    enrolled_at    DateTime @default(now())
+
+    student     Student    @relation(fields: [student_id], references: [student_id])
+    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+
+    @@unique([student_id, school_year_id])
+    @@map("student_year_enrollments")
+}
