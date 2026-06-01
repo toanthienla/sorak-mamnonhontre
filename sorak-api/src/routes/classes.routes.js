@@ -19,6 +19,8 @@ router.get('/', requireRoles('BGH', 'GV'), validate(queryClassSchema, 'query'), 
 router.get('/archived', requireRoles('BGH', 'GV'), asyncHandler(ctrl.findArchived));
 
 router.get('/:id', requireRoles('BGH', 'GV'), asyncHandler(ctrl.findOne));
-
+router.patch('/:id', requireRoles('BGH'), validate(updateClassSchema), asyncHandler(ctrl.update));
+router.delete('/:id', requireRoles('BGH'), asyncHandler(ctrl.softDelete));
+router.patch('/:id/restore', requireRoles('BGH'), asyncHandler(ctrl.restore));
 
 export default router;
