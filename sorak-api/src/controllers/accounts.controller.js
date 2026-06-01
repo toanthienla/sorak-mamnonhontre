@@ -1,0 +1,6 @@
+import * as svc from '../services/accounts.service.js';
+
+// POST /accounts/:id/assign-role — :id = teacher_id
+export async function assignRole(req, res) {
+  res.success(await svc.assignRole(Number(req.params.id), req.body.role, req.body.password));
+}
