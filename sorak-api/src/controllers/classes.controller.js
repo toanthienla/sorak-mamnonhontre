@@ -17,3 +17,14 @@ export async function findOne(req, res) {
   res.success(await svc.findOne(Number(req.params.id)));
 }
 
+export async function update(req, res) {
+  res.success(await svc.update(Number(req.params.id), req.body));
+}
+
+export async function softDelete(req, res) {
+  res.success(await svc.softDelete(Number(req.params.id)));
+}
+
+export async function restore(req, res) {
+  res.success(await svc.restore(Number(req.params.id)));
+}
