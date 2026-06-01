@@ -28,3 +28,11 @@ export async function softDelete(req, res) {
 export async function restore(req, res) {
   res.success(await svc.restore(Number(req.params.id)));
 }
+
+export async function addTeacher(req, res) {
+  res.success(await svc.addTeacher(Number(req.params.id), req.body.account_id));
+}
+
+export async function removeTeacher(req, res) {
+  res.success(await svc.removeTeacher(Number(req.params.id), Number(req.params.teacherId)));
+}

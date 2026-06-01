@@ -22,5 +22,6 @@ router.get('/:id', requireRoles('BGH', 'GV'), asyncHandler(ctrl.findOne));
 router.patch('/:id', requireRoles('BGH'), validate(updateClassSchema), asyncHandler(ctrl.update));
 router.delete('/:id', requireRoles('BGH'), asyncHandler(ctrl.softDelete));
 router.patch('/:id/restore', requireRoles('BGH'), asyncHandler(ctrl.restore));
-
+router.post('/:id/teachers', requireRoles('BGH'), asyncHandler(ctrl.addTeacher));
+router.delete('/:id/teachers/:teacherId', requireRoles('BGH'), asyncHandler(ctrl.removeTeacher));
 export default router;
