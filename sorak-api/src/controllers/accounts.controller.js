@@ -8,3 +8,11 @@ export async function assignRole(req, res) {
 export async function setActive(req, res) {
   res.success(await svc.setActive(Number(req.params.id), req.body.is_active));
 }
+
+export async function softDelete(req, res) {
+  res.success(await svc.softDelete(Number(req.params.id), req.user.sub));
+}
+
+export async function restore(req, res) {
+  res.success(await svc.restore(Number(req.params.id)));
+}
