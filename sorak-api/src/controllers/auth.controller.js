@@ -53,3 +53,17 @@ export async function logout(req, res) {
 export async function me(req, res) {
   res.success(await authService.getMe(req.user));
 }
+
+export async function changePassword(req, res) {
+  res.success(await authService.changePassword(req.user, req.body.old_password, req.body.new_password));
+}
+
+export async function forgotPassword(req, res) {
+  res.success(await authService.forgotPassword(req.body.email));
+}
+
+export async function resetPassword(req, res) {
+  res.success(
+    await authService.resetPasswordWithOtp(req.body.email, req.body.otp, req.body.new_password),
+  );
+}
