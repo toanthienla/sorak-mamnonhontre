@@ -31,4 +31,13 @@ router.get(
   asyncHandler(ctrl.findArchived),
 );
 router.get("/:id", requireRoles("BGH", "GV"), asyncHandler(ctrl.findOne));
+router.patch(
+  "/:id",
+  requireRoles("BGH"),
+  validate(updateAcademicYearSchema),
+  asyncHandler(ctrl.update),
+);
+router.delete("/:id", requireRoles("BGH"), asyncHandler(ctrl.softDelete));
+router.post("/:id/restore", requireRoles("BGH"), asyncHandler(ctrl.restore));
+
 export default router;
