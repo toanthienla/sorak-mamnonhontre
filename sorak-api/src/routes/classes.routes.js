@@ -17,11 +17,13 @@ router.use(authMiddleware);
 router.post('/', requireRoles('BGH'), validate(createClassSchema), asyncHandler(ctrl.create));
 router.get('/', requireRoles('BGH', 'GV'), validate(queryClassSchema, 'query'), asyncHandler(ctrl.findAll));
 router.get('/archived', requireRoles('BGH', 'GV'), asyncHandler(ctrl.findArchived));
-
+router.get('/export/excel', requireRoles('BGH', 'GV'), asyncHandler(ctrl.exportExcel));
 router.get('/:id', requireRoles('BGH', 'GV'), asyncHandler(ctrl.findOne));
 router.patch('/:id', requireRoles('BGH'), validate(updateClassSchema), asyncHandler(ctrl.update));
 router.delete('/:id', requireRoles('BGH'), asyncHandler(ctrl.softDelete));
 router.patch('/:id/restore', requireRoles('BGH'), asyncHandler(ctrl.restore));
 router.post('/:id/teachers', requireRoles('BGH'), asyncHandler(ctrl.addTeacher));
 router.delete('/:id/teachers/:teacherId', requireRoles('BGH'), asyncHandler(ctrl.removeTeacher));
+router.post('/import', requireRoles('BGH'), uploadXlsx.single('file'), asyncHandler(ctrl.importExcel));
+
 export default router;

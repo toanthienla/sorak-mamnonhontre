@@ -36,3 +36,19 @@ export async function addTeacher(req, res) {
 export async function removeTeacher(req, res) {
   res.success(await svc.removeTeacher(Number(req.params.id), Number(req.params.teacherId)));
 }
+
+export async function importExcel(req, res) {
+  if (!req.file) throw BadRequest('Thiếu file');
+  res.success(await svc.importExcel(req.file.buffer));
+}
+
+export async function exportExcel(req, res) {
+  const sy = req.query.school_year_id ? Number(req.query.school_year_id) : undefined;
+  const buf = await svc.exportExcel(sy);
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+  res.setHeader('Content-Disposition', `attachment; filename="classes_${Date.now()}.xlsx"`);
+  res.send(buf);
+}
