@@ -37,6 +37,12 @@ router.patch(
   validate(updateAcademicYearSchema),
   asyncHandler(ctrl.update),
 );
+router.patch(
+  "/:id/activate",
+  requireRoles("BGH"),
+  asyncHandler(ctrl.setActive),
+);
+router.post("/:id/promote", requireRoles("BGH"), asyncHandler(ctrl.promote));
 router.delete("/:id", requireRoles("BGH"), asyncHandler(ctrl.softDelete));
 router.post("/:id/restore", requireRoles("BGH"), asyncHandler(ctrl.restore));
 
