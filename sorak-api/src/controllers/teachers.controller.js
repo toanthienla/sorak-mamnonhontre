@@ -28,3 +28,18 @@ export async function softDelete(req, res) {
 export async function restore(req, res) {
   res.success(await svc.restore(Number(req.params.id)));
 }
+
+export async function importExcel(req, res) {
+  if (!req.file) throw BadRequest('Thiếu file');
+  res.success(await svc.importExcel(req.file.buffer));
+}
+
+export async function exportExcel(req, res) {
+  const buf = await svc.exportExcel();
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+  res.setHeader('Content-Disposition', `attachment; filename="teachers_${Date.now()}.xlsx"`);
+  res.send(buf);
+}
