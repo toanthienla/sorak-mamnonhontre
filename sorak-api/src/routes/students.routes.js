@@ -32,6 +32,11 @@ router.get(
   requireRoles("BGH", "GV"),
   asyncHandler(ctrl.findArchived),
 );
+router.get(
+  "/export/excel",
+  requireRoles("BGH", "GV"),
+  asyncHandler(ctrl.exportExcel),
+);
 router.get("/:id", requireRoles("BGH", "GV"), asyncHandler(ctrl.findOne));
 router.patch(
   "/:id",
@@ -40,11 +45,7 @@ router.patch(
   asyncHandler(ctrl.update),
 );
 router.patch("/:id/restore", requireRoles("BGH"), asyncHandler(ctrl.restore));
-
 router.delete("/:id", requireRoles("BGH"), asyncHandler(ctrl.softDelete));
-
-router.patch("/:id/active", requireRoles("BGH"), asyncHandler(ctrl.setActive));
-
 router.post(
   "/:id/parents",
   requireRoles("BGH"),
@@ -60,6 +61,19 @@ router.post(
   "/:id/reset-password",
   requireRoles("BGH", "GV"),
   asyncHandler(ctrl.resetPassword),
+);
+router.patch("/:id/active", requireRoles("BGH"), asyncHandler(ctrl.setActive));
+router.post(
+  "/import",
+  requireRoles("BGH"),
+  uploadXlsx.single("file"),
+  asyncHandler(ctrl.importExcel),
+);
+router.post(
+  "/:id/photo",
+  requireRoles("BGH", "GV"),
+  uploadImage.single("photo"),
+  asyncHandler(ctrl.uploadPhoto),
 );
 
 export default router;
