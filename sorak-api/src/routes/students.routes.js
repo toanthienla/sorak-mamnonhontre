@@ -33,5 +33,14 @@ router.get(
   asyncHandler(ctrl.findArchived),
 );
 router.get("/:id", requireRoles("BGH", "GV"), asyncHandler(ctrl.findOne));
+router.patch(
+  "/:id",
+  requireRoles("BGH"),
+  validate(updateStudentSchema),
+  asyncHandler(ctrl.update),
+);
+router.patch("/:id/restore", requireRoles("BGH"), asyncHandler(ctrl.restore));
+router.delete("/:id", requireRoles("BGH"), asyncHandler(ctrl.softDelete));
+router.patch("/:id/active", requireRoles("BGH"), asyncHandler(ctrl.setActive));
 
 export default router;

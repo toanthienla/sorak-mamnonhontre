@@ -18,3 +18,19 @@ export async function findArchived(req, res) {
 export async function findOne(req, res) {
   res.success(await svc.findOne(Number(req.params.id)));
 }
+
+export async function update(req, res) {
+  res.success(await svc.update(Number(req.params.id), req.body, req.user.sub));
+}
+
+export async function softDelete(req, res) {
+  res.success(await svc.softDelete(Number(req.params.id), req.user.sub));
+}
+
+export async function restore(req, res) {
+  res.success(await svc.restore(Number(req.params.id)));
+}
+
+export async function setActive(req, res) {
+  res.success(await svc.setActive(Number(req.params.id), req.body.is_active));
+}
