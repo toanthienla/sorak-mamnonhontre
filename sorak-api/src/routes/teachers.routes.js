@@ -18,5 +18,8 @@ router.post('/', requireRoles('BGH'), validate(createTeacherSchema), asyncHandle
 router.get('/', requireRoles('BGH', 'GV'), validate(queryTeacherSchema, 'query'), asyncHandler(ctrl.findAll));
 router.get('/archived', requireRoles('BGH', 'GV'), asyncHandler(ctrl.findArchived));
 router.get('/:id', requireRoles('BGH', 'GV'), asyncHandler(ctrl.findOne));
+router.patch('/:id', requireRoles('BGH'), validate(updateTeacherSchema), asyncHandler(ctrl.update));
+router.patch('/:id/restore', requireRoles('BGH'), asyncHandler(ctrl.restore));
+router.delete('/:id', requireRoles('BGH'), asyncHandler(ctrl.softDelete));
 
 export default router;
