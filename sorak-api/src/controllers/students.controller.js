@@ -34,3 +34,15 @@ export async function restore(req, res) {
 export async function setActive(req, res) {
   res.success(await svc.setActive(Number(req.params.id), req.body.is_active));
 }
+
+export async function resetPassword(req, res) {
+  res.success(await authSvc.resetParentPassword(Number(req.params.id)));
+}
+
+export async function addParent(req, res) {
+  res.success(await svc.addParent(Number(req.params.id), req.body));
+}
+
+export async function updateParent(req, res) {
+  res.success(await svc.updateParent(Number(req.params.parentId), req.body));
+}

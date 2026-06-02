@@ -40,7 +40,26 @@ router.patch(
   asyncHandler(ctrl.update),
 );
 router.patch("/:id/restore", requireRoles("BGH"), asyncHandler(ctrl.restore));
+
 router.delete("/:id", requireRoles("BGH"), asyncHandler(ctrl.softDelete));
+
 router.patch("/:id/active", requireRoles("BGH"), asyncHandler(ctrl.setActive));
+
+router.post(
+  "/:id/parents",
+  requireRoles("BGH"),
+  validate(parentInputSchema),
+  asyncHandler(ctrl.addParent),
+);
+router.patch(
+  "/parents/:parentId",
+  requireRoles("BGH"),
+  asyncHandler(ctrl.updateParent),
+);
+router.post(
+  "/:id/reset-password",
+  requireRoles("BGH", "GV"),
+  asyncHandler(ctrl.resetPassword),
+);
 
 export default router;
