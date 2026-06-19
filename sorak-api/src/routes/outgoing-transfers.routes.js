@@ -16,6 +16,7 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 // View + export: PRINCIPAL + TEACHER
 
+router.get('/', validate(querySchoolTransferSchema, 'query'), asyncHandler(ctrl.findAll));
 router.post(
   '/',
   requireRoles('PRINCIPAL'),
