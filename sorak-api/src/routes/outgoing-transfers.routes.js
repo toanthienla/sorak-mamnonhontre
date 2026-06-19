@@ -26,5 +26,11 @@ router.post(
   validate(createOutgoingSchema),
   asyncHandler(ctrl.create),
 );
+router.patch(
+  '/:id',
+  requireRoles('PRINCIPAL'),
+  validate(updateOutgoingSchema),
+  asyncHandler(ctrl.update),
+);
 
 export default router;
