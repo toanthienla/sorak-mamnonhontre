@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../config/prisma.js';
 import { paginate } from '../utils/paginate.js';
 import { BadRequest, Conflict, NotFound } from '../utils/http-error.js';
+import { searchIds } from '../utils/search.js';
 
 const TEACHER_SELECT = {
   teacher_id: true,
@@ -30,7 +31,10 @@ async function assertExists(id) {
 }
 
 export async function create(dto) {
-  const dup = await prisma.teacher.findFirst({ where: { email: dto.email }, select: { teacher_id: true } });
+  const dup = await prisma.teacher.findFirst({
+    where: { email: dto.email },
+    select: { teacher_id: true },
+  });
   if (dup) throw Conflict('Email đã tồn tại');
 
   return prisma.teacher.create({
@@ -56,13 +60,17 @@ export async function findArchived(query = {}) {
   const pageSize = Number(query.pageSize ?? 100);
   const where = { deleted_at: { not: null } };
   if (query.search) {
-    where.OR = [
-      { full_name: { contains: query.search, mode: 'insensitive' } },
-      { email: { contains: query.search, mode: 'insensitive' } },
-    ];
+    const ids = await searchIds('teachers', 'teacher_id', ['full_name', 'email'], query.search);
+    where.teacher_id = { in: ids ?? [] };
   }
   const [data, total] = await prisma.$transaction([
-    prisma.teacher.findMany({ where, select: TEACHER_SELECT, orderBy: { deleted_at: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+    prisma.teacher.findMany({
+      where,
+      select: TEACHER_SELECT,
+      orderBy: { deleted_at: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
     prisma.teacher.count({ where }),
   ]);
   return paginate(data, total, page, pageSize);
@@ -87,13 +95,9 @@ export async function findAll(query) {
     where.account = { ...(where.account ?? {}), role: query.role };
   }
 
-
   if (search) {
-    where.OR = [
-      { full_name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
-      { phone: { contains: search } },
-    ];
+    const ids = await searchIds('teachers', 'teacher_id', ['full_name', 'email', 'phone'], search);
+    where.teacher_id = { in: ids ?? [] };
   }
 
   const orderBy = sortBy ? { [sortBy]: sortOrder } : { teacher_id: 'desc' };
@@ -161,13 +165,13 @@ export async function update(id, dto) {
     data: {
       full_name: dto.full_name ?? undefined,
       email: dto.email ?? undefined,
-      phone: dto.phone === undefined ? undefined : (dto.phone || null),
+      phone: dto.phone === undefined ? undefined : dto.phone || null,
       position: dto.position ?? undefined,
       gender: dto.gender ?? undefined,
       date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : undefined,
-      address: dto.address === undefined ? undefined : (dto.address || null),
+      address: dto.address === undefined ? undefined : dto.address || null,
       work_start_date: dto.work_start_date ? new Date(dto.work_start_date) : undefined,
-      qualification: dto.qualification === undefined ? undefined : (dto.qualification || null),
+      qualification: dto.qualification === undefined ? undefined : dto.qualification || null,
       work_status: dto.work_status ?? undefined,
     },
     select: TEACHER_SELECT,
@@ -203,10 +207,101 @@ export async function restore(id) {
   await prisma.$transaction(async (tx) => {
     await tx.teacher.update({ where: { teacher_id: id }, data: { deleted_at: null } });
     if (t.account_id) {
-      await tx.account.update({ where: { account_id: t.account_id }, data: { deleted_at: null } });
+      await tx.account.update({
+        where: { account_id: t.account_id },
+        data: { deleted_at: null, is_active: true },
+      });
     }
   });
   return { teacher_id: id, restored: true };
+}
+
+export async function importTemplate() {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Cán bộ');
+  ws.columns = [
+    { header: 'Họ tên *', key: 'name', width: 25 },
+    { header: 'Email *', key: 'email', width: 25 },
+    { header: 'Chức vụ', key: 'position', width: 16 },
+    { header: 'SĐT', key: 'phone', width: 14 },
+    { header: 'Ngày sinh (YYYY-MM-DD)', key: 'dob', width: 20 },
+    { header: 'Giới tính (Nam/Nữ)', key: 'gender', width: 16 },
+    { header: 'Trình độ', key: 'qualification', width: 20 },
+  ];
+  ws.getRow(1).font = { bold: true };
+  ws.addRow({
+    name: 'Trần Thị C',
+    email: 'tranthic@edu.vn',
+    position: 'Giáo viên',
+    phone: '0901234567',
+    dob: '1990-01-01',
+    gender: 'Nữ',
+    qualification: 'Cử nhân',
+  });
+  const arr = await wb.xlsx.writeBuffer();
+  return Buffer.from(arr);
+}
+
+export async function previewImport(buffer) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const sheet = wb.worksheets[0];
+  if (!sheet) throw BadRequest('File Excel không có sheet');
+
+  const seenEmails = new Set();
+  const rows = [];
+  for (let i = 2; i <= sheet.rowCount; i++) {
+    const row = sheet.getRow(i);
+    const full_name = String(row.getCell(1).value ?? '').trim();
+    let email = String(row.getCell(2).value ?? '').trim();
+    // email cell may be a hyperlink object
+    if (
+      row.getCell(2).value &&
+      typeof row.getCell(2).value === 'object' &&
+      row.getCell(2).value.text
+    ) {
+      email = String(row.getCell(2).value.text).trim();
+    }
+    const position = String(row.getCell(3).value ?? '').trim();
+    const phone = String(row.getCell(4).value ?? '').trim();
+    const dobRaw = row.getCell(5).value;
+    const gender = String(row.getCell(6).value ?? '').trim();
+    const qualification = String(row.getCell(7).value ?? '').trim();
+
+    if (!full_name && !email) continue;
+
+    const errors = [];
+    if (!full_name) errors.push('Thiếu họ tên');
+    if (!email) errors.push('Thiếu email');
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email không hợp lệ');
+    else {
+      if (seenEmails.has(email.toLowerCase())) errors.push('Email trùng trong file');
+      seenEmails.add(email.toLowerCase());
+      const dup = await prisma.teacher.findFirst({
+        where: { email },
+        select: { teacher_id: true },
+      });
+      if (dup) errors.push('Email đã tồn tại trong hệ thống');
+    }
+    if (gender && !['Nam', 'Nữ'].includes(gender)) errors.push('Giới tính phải Nam/Nữ');
+
+    rows.push({
+      row: i,
+      full_name,
+      email,
+      position,
+      phone,
+      gender,
+      qualification,
+      valid: errors.length === 0,
+      errors,
+    });
+  }
+  return {
+    rows,
+    valid_count: rows.filter((r) => r.valid).length,
+    error_count: rows.filter((r) => !r.valid).length,
+  };
 }
 
 export async function importExcel(buffer) {
@@ -221,7 +316,14 @@ export async function importExcel(buffer) {
   for (let i = 2; i <= sheet.rowCount; i++) {
     const row = sheet.getRow(i);
     const full_name = String(row.getCell(1).value ?? '').trim();
-    const email = String(row.getCell(2).value ?? '').trim();
+    let email = String(row.getCell(2).value ?? '').trim();
+    if (
+      row.getCell(2).value &&
+      typeof row.getCell(2).value === 'object' &&
+      row.getCell(2).value.text
+    ) {
+      email = String(row.getCell(2).value.text).trim();
+    }
     const position = String(row.getCell(3).value ?? '').trim() || undefined;
     const phone = String(row.getCell(4).value ?? '').trim() || undefined;
     const dobRaw = row.getCell(5).value;
@@ -229,11 +331,22 @@ export async function importExcel(buffer) {
     const qualification = String(row.getCell(7).value ?? '').trim() || undefined;
 
     if (!full_name && !email) continue;
-    if (!full_name || !email) { errors.push({ row: i, message: 'Thiếu full_name/email' }); continue; }
+    if (!full_name || !email) {
+      errors.push({ row: i, message: 'Thiếu full_name/email' });
+      continue;
+    }
 
     try {
       const dob = dobRaw instanceof Date ? dobRaw.toISOString().slice(0, 10) : undefined;
-      const result = await create({ full_name, email, position, phone, date_of_birth: dob, gender, qualification });
+      const result = await create({
+        full_name,
+        email,
+        position,
+        phone,
+        date_of_birth: dob,
+        gender,
+        qualification,
+      });
       created.push({ row: i, teacher_id: result.teacher_id, email });
     } catch (e) {
       errors.push({ row: i, message: e.message });
@@ -277,9 +390,14 @@ export async function exportExcel() {
       .map((tc) => `${tc.class.class_name} - ${tc.class.school_year.name}`)
       .join('; ');
     ws.addRow({
-      name: t.full_name, email: t.email, position: t.position ?? '',
-      phone: t.phone ?? '', dob: t.date_of_birth ? t.date_of_birth.toISOString().slice(0, 10) : '',
-      gender: t.gender ?? '', qualification: t.qualification ?? '', classes,
+      name: t.full_name,
+      email: t.email,
+      position: t.position ?? '',
+      phone: t.phone ?? '',
+      dob: t.date_of_birth ? t.date_of_birth.toISOString().slice(0, 10) : '',
+      gender: t.gender ?? '',
+      qualification: t.qualification ?? '',
+      classes,
       role: t.account?.role ?? 'Chưa cấp',
       status: t.account?.is_active ? 'Active' : 'Inactive',
     });
