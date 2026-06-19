@@ -1,26 +1,55 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, Trash2, Upload, Download, Search, Archive, ArchiveRestore, MoreHorizontal } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Upload,
+  Download,
+  Search,
+  Archive,
+  ArchiveRestore,
+  MoreHorizontal,
+  FileDown,
+  FileSpreadsheet,
+} from 'lucide-react';
 import { useTableSort } from '@/shared/hooks/use-table-sort.jsx';
 import { ColumnToggle } from '@/shared/components/column-toggle';
+import { ImportPreviewDialog } from '@/shared/components/import-preview-dialog';
 import { fmtDate } from '@/shared/utils/date';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { PageHeader } from '@/shared/components/page-header';
 import { DataPagination } from '@/shared/components/data-pagination';
@@ -34,9 +63,14 @@ import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 const WORK_STATUS_OPTIONS = [
-  'Đang làm việc', 'Chuyển đến', 'Đã chuyển đi',
-  'Đã điều động', 'Chờ nghỉ hưu', 'Đã nghỉ hưu',
-  'Đã biệt phái', 'Thôi việc',
+  'Đang làm việc',
+  'Chuyển đến',
+  'Đã chuyển đi',
+  'Đã điều động',
+  'Chờ nghỉ hưu',
+  'Đã nghỉ hưu',
+  'Đã biệt phái',
+  'Thôi việc',
 ];
 
 const createSchema = z.object({
@@ -73,9 +107,10 @@ function unwrap(d) {
 
 export function TeachersPage() {
   const role = useAuthStore((s) => s.user?.role);
-  const isBGH = role === 'BGH';
+  const isBGH = role === 'PRINCIPAL';
   const selectedYearId = useYearStore((s) => s.selectedYearId);
   const qc = useQueryClient();
+  const importInputRef = useRef();
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -86,9 +121,15 @@ export function TeachersPage() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const SORT_FIELD = {
-    name: 'full_name', position: 'position', work_status: 'work_status',
-    email: 'email', phone: 'phone', gender: 'gender',
-    dob: 'date_of_birth', qualification: 'qualification', work_start: 'work_start_date',
+    name: 'full_name',
+    position: 'position',
+    work_status: 'work_status',
+    email: 'email',
+    phone: 'phone',
+    gender: 'gender',
+    dob: 'date_of_birth',
+    qualification: 'qualification',
+    work_start: 'work_start_date',
   };
 
   const COLS = [
@@ -103,27 +144,64 @@ export function TeachersPage() {
     { key: 'work_start', label: 'Ngày vào làm' },
   ];
   const COL_KEYS = COLS.map((c) => c.key);
-  const { hidden: hiddenCols, setHidden: setHiddenCols, order: colOrder, setOrder: setColOrder } =
-    useColumnSettings('col:staff-hr', COL_KEYS);
+  const {
+    hidden: hiddenCols,
+    setHidden: setHiddenCols,
+    order: colOrder,
+    setOrder: setColOrder,
+  } = useColumnSettings('col:staff-hr', COL_KEYS);
   const orderedCols = colOrder.map((k) => COLS.find((c) => c.key === k)).filter(Boolean);
   const show = (k) => !hiddenCols.has(k);
 
   const COL_HEADER = {
-    name: 'Họ tên', position: 'Chức vụ', work_status: 'Trạng thái', email: 'Email', phone: 'SĐT',
-    gender: 'Giới tính', dob: 'Ngày sinh', qualification: 'Trình độ', work_start: 'Ngày vào làm',
+    name: 'Họ tên',
+    position: 'Chức vụ',
+    work_status: 'Trạng thái',
+    email: 'Email',
+    phone: 'SĐT',
+    gender: 'Giới tính',
+    dob: 'Ngày sinh',
+    qualification: 'Trình độ',
+    work_start: 'Ngày vào làm',
   };
   const renderCell = (key, t) => {
     switch (key) {
-      case 'name': return <TableCell key={key} className="font-medium">{t.full_name}</TableCell>;
-      case 'position': return <TableCell key={key}>{t.position ?? '—'}</TableCell>;
-      case 'work_status': return <TableCell key={key}>{t.work_status ?? 'Đang làm việc'}</TableCell>;
-      case 'email': return <TableCell key={key}>{t.email}</TableCell>;
-      case 'phone': return <TableCell key={key}>{t.phone ?? '—'}</TableCell>;
-      case 'gender': return <TableCell key={key}>{t.gender ?? '—'}</TableCell>;
-      case 'dob': return <TableCell key={key}>{fmtDate(t.date_of_birth)}</TableCell>;
-      case 'qualification': return <TableCell key={key}>{t.qualification ?? '—'}</TableCell>;
-      case 'work_start': return <TableCell key={key}>{fmtDate(t.work_start_date)}</TableCell>;
-      default: return null;
+      case 'name':
+        return (
+          <TableCell key={key} className="font-medium">
+            {t.full_name}
+          </TableCell>
+        );
+      case 'position':
+        return <TableCell key={key}>{t.position ?? '—'}</TableCell>;
+      case 'work_status':
+        return (
+          <TableCell key={key}>
+            <span
+              className={
+                (t.work_status ?? 'Đang làm việc') === 'Đang làm việc'
+                  ? 'text-green-700'
+                  : 'text-muted-foreground'
+              }
+            >
+              {t.work_status ?? 'Đang làm việc'}
+            </span>
+          </TableCell>
+        );
+      case 'email':
+        return <TableCell key={key}>{t.email}</TableCell>;
+      case 'phone':
+        return <TableCell key={key}>{t.phone ?? '—'}</TableCell>;
+      case 'gender':
+        return <TableCell key={key}>{t.gender ?? '—'}</TableCell>;
+      case 'dob':
+        return <TableCell key={key}>{fmtDate(t.date_of_birth)}</TableCell>;
+      case 'qualification':
+        return <TableCell key={key}>{t.qualification ?? '—'}</TableCell>;
+      case 'work_start':
+        return <TableCell key={key}>{fmtDate(t.work_start_date)}</TableCell>;
+      default:
+        return null;
     }
   };
 
@@ -154,6 +232,7 @@ export function TeachersPage() {
     onSuccess: () => {
       toast.success('Đã khôi phục cán bộ');
       qc.invalidateQueries({ queryKey: ['teachers'] });
+      qc.invalidateQueries({ queryKey: ['teachers-archived'] });
     },
   });
 
@@ -162,9 +241,16 @@ export function TeachersPage() {
 
   const onOpenCreate = () => {
     createForm.reset({
-      full_name: '', email: '', position: '', phone: '',
-      date_of_birth: '', gender: undefined, address: '',
-      work_start_date: '', qualification: '', work_status: 'Đang làm việc',
+      full_name: '',
+      email: '',
+      position: '',
+      phone: '',
+      date_of_birth: '',
+      gender: undefined,
+      address: '',
+      work_start_date: '',
+      qualification: '',
+      work_status: 'Đang làm việc',
     });
     setCreateOpen(true);
   };
@@ -203,18 +289,62 @@ export function TeachersPage() {
     const res = await apiClient.get('/teachers/export/excel', { responseType: 'blob' });
     const url = URL.createObjectURL(res.data);
     const a = document.createElement('a');
-    a.href = url; a.download = `can_bo_${Date.now()}.xlsx`; a.click();
+    a.href = url;
+    a.download = `can_bo_${Date.now()}.xlsx`;
+    a.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = async (file) => {
-    const fd = new FormData();
-    fd.append('file', file);
+  const handleDownloadTemplate = async () => {
+    const res = await apiClient.get('/teachers/import/template', { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mau_nhap_can_bo.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const [importFile, setImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleFileSelect = async (file) => {
+    setImportFile(file);
+    setImportPreview(null);
+    setPreviewOpen(true);
+    setPreviewLoading(true);
     try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await apiClient.post('/teachers/import/preview', fd);
+      setImportPreview(res.data?.data ?? res.data);
+    } catch (e) {
+      setImportPreview({ fatal: e?.response?.data?.message ?? 'Lỗi đọc file', rows: [] });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importFile) return;
+    setConfirming(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', importFile);
       const res = await apiClient.post('/teachers/import', fd);
-      const r = unwrap(res.data);
-      toast.success(`${r.success_count} tạo, ${r.error_count} lỗi`);
-    } catch { /* toast */ }
+      const r = res.data?.data ?? res.data;
+      toast.success(`Nhập xong: ${r.success_count} thành công, ${r.error_count} lỗi`);
+      qc.invalidateQueries({ queryKey: ['teachers'] });
+      setPreviewOpen(false);
+      setImportFile(null);
+    } catch (e) {
+      toast.error(e?.response?.data?.message ?? 'Nhập thất bại');
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -222,72 +352,122 @@ export function TeachersPage() {
       <PageHeader
         title="Cán bộ"
         description="Hồ sơ cán bộ giáo viên. Cấp tài khoản ở trang Tài khoản."
-        actions={<>
-          <ColumnToggle columns={COLS} hidden={hiddenCols} onHiddenChange={setHiddenCols} order={colOrder} onOrderChange={setColOrder} />
-          <Button variant="outline" size="icon" title="Xuất Excel" onClick={handleExport}>
-            <Download className="h-4 w-4" />
-          </Button>
-          {isBGH && (
-            <label title="Nhập Excel">
-              <input type="file" accept=".xlsx" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ''; }} />
-              <Button variant="outline" size="icon" asChild>
-                <span><Upload className="h-4 w-4" /></span>
-              </Button>
-            </label>
-          )}
-          {isBGH && (
-            <Button variant="outline" size="icon" title="Cán bộ đã lưu trữ" onClick={() => setArchiveOpen(true)}>
-              <Archive className="h-4 w-4" />
-            </Button>
-          )}
-          {isBGH && (
-            <Button size="sm" onClick={onOpenCreate}>
-              <Plus className="h-4 w-4 mr-1.5" /> Tạo cán bộ
-            </Button>
-          )}
-        </>}
       />
 
-      <form
-        onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(searchInput); }}
-        className="flex gap-2 mb-4 max-w-sm"
-      >
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-8"
-            placeholder="Tìm tên / email / SĐT"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-        </div>
-        <Button type="submit" variant="secondary">Tìm</Button>
-      </form>
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setPage(1);
+            setSearch(searchInput);
+          }}
+          className="flex gap-2 flex-1 max-w-sm"
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder="Tìm tên / email / SĐT"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
+          <Button type="submit" variant="secondary">
+            Tìm
+          </Button>
+        </form>
+        <div className="flex-1" />
+        <ColumnToggle
+          columns={COLS}
+          hidden={hiddenCols}
+          onHiddenChange={setHiddenCols}
+          order={colOrder}
+          onOrderChange={setColOrder}
+        />
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFileSelect(f);
+            e.target.value = '';
+          }}
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" /> Excel
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" /> Xuất danh sách
+            </DropdownMenuItem>
+            {isBGH && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDownloadTemplate}>
+                  <FileDown className="h-4 w-4 mr-2" /> Tải form mẫu
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
+                  <Upload className="h-4 w-4 mr-2" /> Nhập từ Excel
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {isBGH && (
+          <Button
+            variant="outline"
+            size="icon"
+            title="Cán bộ đã lưu trữ"
+            onClick={() => {
+              setArchiveOpen(true);
+              qc.invalidateQueries({ queryKey: ['teachers-archived'] });
+            }}
+          >
+            <Archive className="h-4 w-4" />
+          </Button>
+        )}
+        {isBGH && (
+          <Button size="sm" onClick={onOpenCreate}>
+            <Plus className="h-4 w-4 mr-1.5" /> Tạo cán bộ
+          </Button>
+        )}
+      </div>
 
       <div className="bg-card rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              {orderedCols.filter((c) => show(c.key)).map((c) => (
-                <TableHead
-                  key={c.key}
-                  className={SORT_FIELD[c.key] ? 'cursor-pointer select-none hover:bg-muted/50' : ''}
-                  onClick={() => toggleSort(c.key)}
-                >
-                  <span className="inline-flex items-center">
-                    {COL_HEADER[c.key]}
-                    {SORT_FIELD[c.key] && <SortIcon colKey={c.key} />}
-                  </span>
-                </TableHead>
-              ))}
+              {orderedCols
+                .filter((c) => show(c.key))
+                .map((c) => (
+                  <TableHead
+                    key={c.key}
+                    className={
+                      SORT_FIELD[c.key] ? 'cursor-pointer select-none hover:bg-muted/50' : ''
+                    }
+                    onClick={() => toggleSort(c.key)}
+                  >
+                    <span className="inline-flex items-center">
+                      {COL_HEADER[c.key]}
+                      {SORT_FIELD[c.key] && <SortIcon colKey={c.key} />}
+                    </span>
+                  </TableHead>
+                ))}
               {isBGH && <TableHead className="text-right">Thao tác</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={orderedCols.filter((c) => show(c.key)).length + 1} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={orderedCols.filter((c) => show(c.key)).length + 1}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   Đang tải...
                 </TableCell>
               </TableRow>
@@ -337,8 +517,10 @@ export function TeachersPage() {
 
       {data && (
         <DataPagination
-          page={data.meta.page} pageSize={data.meta.pageSize}
-          total={data.meta.total} totalPages={data.meta.totalPages}
+          page={data.meta.page}
+          pageSize={data.meta.pageSize}
+          total={data.meta.total}
+          totalPages={data.meta.totalPages}
           onPageChange={setPage}
         />
       )}
@@ -349,21 +531,53 @@ export function TeachersPage() {
           <DialogHeader>
             <DialogTitle>Tạo cán bộ mới</DialogTitle>
           </DialogHeader>
-          <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+          <form
+            onSubmit={createForm.handleSubmit(onCreateSubmit)}
+            className="space-y-4 max-h-[75vh] overflow-y-auto pr-1"
+          >
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Họ tên <span className="text-destructive">*</span></Label><Input {...createForm.register('full_name')} /></div>
-              <div><Label>Chức vụ <span className="text-destructive">*</span></Label><Input placeholder="Giáo viên, Hiệu trưởng..." {...createForm.register('position')} /></div>
+              <div>
+                <Label>
+                  Họ tên <span className="text-destructive">*</span>
+                </Label>
+                <Input {...createForm.register('full_name')} />
+              </div>
+              <div>
+                <Label>
+                  Chức vụ <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  placeholder="Giáo viên, Hiệu trưởng..."
+                  {...createForm.register('position')}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Email <span className="text-destructive">*</span></Label><Input type="email" {...createForm.register('email')} /></div>
-              <div><Label>SĐT</Label><Input {...createForm.register('phone')} /></div>
+              <div>
+                <Label>
+                  Email <span className="text-destructive">*</span>
+                </Label>
+                <Input type="email" {...createForm.register('email')} />
+              </div>
+              <div>
+                <Label>SĐT</Label>
+                <Input {...createForm.register('phone')} />
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div><Label>Ngày sinh</Label><Input type="date" {...createForm.register('date_of_birth')} /></div>
+              <div>
+                <Label>Ngày sinh</Label>
+                <Input type="date" {...createForm.register('date_of_birth')} />
+              </div>
               <div>
                 <Label>Giới tính</Label>
-                <Select value={createForm.watch('gender') ?? ''} onValueChange={(v) => createForm.setValue('gender', v)}>
-                  <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                <Select
+                  value={createForm.watch('gender') ?? ''}
+                  onValueChange={(v) => createForm.setValue('gender', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Nam">Nam</SelectItem>
                     <SelectItem value="Nữ">Nữ</SelectItem>
@@ -371,11 +585,20 @@ export function TeachersPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label>Trình độ</Label><Input {...createForm.register('qualification')} /></div>
+              <div>
+                <Label>Trình độ</Label>
+                <Input {...createForm.register('qualification')} />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Ngày vào làm</Label><Input type="date" {...createForm.register('work_start_date')} /></div>
-              <div><Label>Địa chỉ</Label><Input {...createForm.register('address')} /></div>
+              <div>
+                <Label>Ngày vào làm</Label>
+                <Input type="date" {...createForm.register('work_start_date')} />
+              </div>
+              <div>
+                <Label>Địa chỉ</Label>
+                <Input {...createForm.register('address')} />
+              </div>
             </div>
             <div>
               <Label>Trạng thái công tác</Label>
@@ -383,17 +606,25 @@ export function TeachersPage() {
                 value={createForm.watch('work_status') || 'Đang làm việc'}
                 onValueChange={(v) => createForm.setValue('work_status', v)}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {WORK_STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Hủy</Button>
-              <Button type="submit" disabled={create.isPending}>Tạo cán bộ</Button>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={create.isPending}>
+                Tạo cán bộ
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -406,21 +637,53 @@ export function TeachersPage() {
             <DialogTitle>Cập nhật cán bộ</DialogTitle>
           </DialogHeader>
           {editing && (
-            <form onSubmit={updateForm.handleSubmit(onUpdateSubmit)} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            <form
+              onSubmit={updateForm.handleSubmit(onUpdateSubmit)}
+              className="space-y-4 max-h-[75vh] overflow-y-auto pr-1"
+            >
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Họ tên <span className="text-destructive">*</span></Label><Input {...updateForm.register('full_name')} /></div>
-                <div><Label>Chức vụ <span className="text-destructive">*</span></Label><Input placeholder="Giáo viên, Hiệu trưởng..." {...updateForm.register('position')} /></div>
+                <div>
+                  <Label>
+                    Họ tên <span className="text-destructive">*</span>
+                  </Label>
+                  <Input {...updateForm.register('full_name')} />
+                </div>
+                <div>
+                  <Label>
+                    Chức vụ <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    placeholder="Giáo viên, Hiệu trưởng..."
+                    {...updateForm.register('position')}
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Email <span className="text-destructive">*</span></Label><Input type="email" {...updateForm.register('email')} /></div>
-                <div><Label>SĐT</Label><Input {...updateForm.register('phone')} /></div>
+                <div>
+                  <Label>
+                    Email <span className="text-destructive">*</span>
+                  </Label>
+                  <Input type="email" {...updateForm.register('email')} />
+                </div>
+                <div>
+                  <Label>SĐT</Label>
+                  <Input {...updateForm.register('phone')} />
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div><Label>Ngày sinh</Label><Input type="date" {...updateForm.register('date_of_birth')} /></div>
+                <div>
+                  <Label>Ngày sinh</Label>
+                  <Input type="date" {...updateForm.register('date_of_birth')} />
+                </div>
                 <div>
                   <Label>Giới tính</Label>
-                  <Select value={updateForm.watch('gender') ?? ''} onValueChange={(v) => updateForm.setValue('gender', v)}>
-                    <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                  <Select
+                    value={updateForm.watch('gender') ?? ''}
+                    onValueChange={(v) => updateForm.setValue('gender', v, { shouldDirty: true })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Nam">Nam</SelectItem>
                       <SelectItem value="Nữ">Nữ</SelectItem>
@@ -428,29 +691,48 @@ export function TeachersPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Trình độ</Label><Input {...updateForm.register('qualification')} /></div>
+                <div>
+                  <Label>Trình độ</Label>
+                  <Input {...updateForm.register('qualification')} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Ngày vào làm</Label><Input type="date" {...updateForm.register('work_start_date')} /></div>
-                <div><Label>Địa chỉ</Label><Input {...updateForm.register('address')} /></div>
+                <div>
+                  <Label>Ngày vào làm</Label>
+                  <Input type="date" {...updateForm.register('work_start_date')} />
+                </div>
+                <div>
+                  <Label>Địa chỉ</Label>
+                  <Input {...updateForm.register('address')} />
+                </div>
               </div>
               <div>
                 <Label>Trạng thái công tác</Label>
                 <Select
                   value={updateForm.watch('work_status') || 'Đang làm việc'}
-                  onValueChange={(v) => updateForm.setValue('work_status', v)}
+                  onValueChange={(v) =>
+                    updateForm.setValue('work_status', v, { shouldDirty: true })
+                  }
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {WORK_STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Hủy</Button>
-                <Button type="submit" disabled={update.isPending}>Cập nhật</Button>
+                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={update.isPending || !updateForm.formState.isDirty}>
+                  Cập nhật
+                </Button>
               </DialogFooter>
             </form>
           )}
@@ -466,7 +748,10 @@ export function TeachersPage() {
         confirmLabel="Xóa"
         loading={del.isPending}
         onConfirm={async () => {
-          if (deleting) { await del.mutateAsync(deleting.teacher_id); setDeleting(null); }
+          if (deleting) {
+            await del.mutateAsync(deleting.teacher_id);
+            setDeleting(null);
+          }
         }}
       />
 
@@ -488,10 +773,18 @@ export function TeachersPage() {
               </TableHeader>
               <TableBody>
                 {archivedLoading && (
-                  <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Đang tải...</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                      Đang tải...
+                    </TableCell>
+                  </TableRow>
                 )}
                 {!archivedLoading && (!archivedData || archivedData.length === 0) && (
-                  <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Không có cán bộ nào được lưu trữ</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                      Không có cán bộ nào được lưu trữ
+                    </TableCell>
+                  </TableRow>
                 )}
                 {archivedData?.map((t) => (
                   <TableRow key={t.teacher_id}>
@@ -517,7 +810,24 @@ export function TeachersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ImportPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title="Xem trước nhập cán bộ"
+        columns={[
+          { key: 'full_name', label: 'Họ tên' },
+          { key: 'email', label: 'Email' },
+          { key: 'position', label: 'Chức vụ' },
+          { key: 'phone', label: 'SĐT' },
+          { key: 'gender', label: 'Giới tính' },
+          { key: 'qualification', label: 'Trình độ' },
+        ]}
+        preview={importPreview}
+        loading={previewLoading}
+        confirming={confirming}
+        onConfirm={handleConfirmImport}
+      />
     </>
   );
 }
-

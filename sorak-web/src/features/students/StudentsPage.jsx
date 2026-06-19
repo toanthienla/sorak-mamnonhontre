@@ -3,7 +3,21 @@ import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, Trash2, Upload, Download, Search, Archive, ArchiveRestore, MoreHorizontal, X } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Upload,
+  Download,
+  Search,
+  Archive,
+  ArchiveRestore,
+  MoreHorizontal,
+  X,
+  FileDown,
+  FileSpreadsheet,
+  Users,
+} from 'lucide-react';
 import { ColumnToggle } from '@/shared/components/column-toggle';
 import { fmtDate } from '@/shared/utils/date';
 import { cloudinaryThumb } from '@/shared/utils/image';
@@ -13,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImageCropDialog } from '@/shared/components/image-crop-dialog';
+import { ImportPreviewDialog } from '@/shared/components/import-preview-dialog';
 import {
   Table,
   TableBody,
@@ -36,10 +51,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { PageHeader } from '@/shared/components/page-header';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { InfoRow, DetailSection } from '@/shared/components/detail-sheet';
 import { DataPagination } from '@/shared/components/data-pagination';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { useCreate, useDelete, useList, useUpdate } from '@/shared/hooks/use-crud';
@@ -76,16 +96,23 @@ const createSchema = z.object({
 
 const STUDENT_STATUS_OPTIONS = [
   'Đang học',
-  'Chuyển đến kỳ 1', 'Nghỉ học xin học lại kỳ 1', 'Chuyển đi kỳ 1', 'Thôi học kỳ 1',
-  'Chuyển đến kỳ 2', 'Nghỉ học xin học lại kỳ 2', 'Chuyển đi kỳ 2', 'Thôi học kỳ 2',
-  'Chuyển đến trong hè', 'Chuyển đi trong hè', 'Thôi học trong hè',
+  'Chuyển đến kỳ 1',
+  'Nghỉ học xin học lại kỳ 1',
+  'Chuyển đi kỳ 1',
+  'Thôi học kỳ 1',
+  'Chuyển đến kỳ 2',
+  'Nghỉ học xin học lại kỳ 2',
+  'Chuyển đi kỳ 2',
+  'Thôi học kỳ 2',
+  'Chuyển đến trong hè',
+  'Chuyển đi trong hè',
+  'Thôi học trong hè',
 ];
 
 const updateSchema = z.object({
   full_name: z.string().min(1),
   date_of_birth: z.string().min(1),
   gender: z.enum(['Nam', 'Nữ']),
-  grade_level: z.string().optional(),
   student_status: z.string().optional(),
   enrollment_date: z.string().optional(),
   ethnicity: z.string().optional(),
@@ -111,8 +138,8 @@ function unwrap(d) {
 export function StudentsPage() {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
-  const isBGH = role === 'BGH';
-  const isGV = role === 'GV';
+  const isBGH = role === 'PRINCIPAL';
+  const isGV = role === 'TEACHER';
   const isStaff = isBGH || isGV;
   const selectedYearId = useYearStore((s) => s.selectedYearId);
   const queryClient = useQueryClient();
@@ -130,11 +157,19 @@ export function StudentsPage() {
       setPage(1);
     }
   }, [searchParams]);
+
+  // reset class filter when school year changes (class belongs to a specific year)
+  useEffect(() => {
+    setClassFilter('all');
+    setPage(1);
+  }, [selectedYearId]);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [parentsOpen, setParentsOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [viewing, setViewing] = useState(null); // student detail drawer
 
   const COLS = [
     { key: 'photo', label: 'Ảnh' },
@@ -155,8 +190,12 @@ export function StudentsPage() {
     { key: 'current_address', label: 'Địa chỉ hiện tại' },
   ];
   const COL_KEYS = COLS.map((c) => c.key);
-  const { hidden: hiddenCols, setHidden: setHiddenCols, order: colOrder, setOrder: setColOrder } =
-    useColumnSettings('col:students', COL_KEYS);
+  const {
+    hidden: hiddenCols,
+    setHidden: setHiddenCols,
+    order: colOrder,
+    setOrder: setColOrder,
+  } = useColumnSettings('col:students', COL_KEYS);
   const orderedCols = colOrder.map((k) => COLS.find((c) => c.key === k)).filter(Boolean);
   const show = (key) => !hiddenCols.has(key);
 
@@ -177,14 +216,24 @@ export function StudentsPage() {
   const data = rawStudentData;
 
   const STU_SORT_FIELD = {
-    card: 'student_id_card_number', name: 'full_name', dob: 'date_of_birth',
-    gender: 'gender', grade: 'grade_level', student_status: 'student_status',
-    enrollment_date: 'enrollment_date', birth_place: 'birth_place',
-    ethnicity: 'ethnicity', nationality: 'nationality',
-    religion: 'religion', blood_type: 'blood_type',
+    card: 'student_id_card_number',
+    name: 'full_name',
+    dob: 'date_of_birth',
+    gender: 'gender',
+    grade: 'grade_level',
+    student_status: 'student_status',
+    enrollment_date: 'enrollment_date',
+    birth_place: 'birth_place',
+    ethnicity: 'ethnicity',
+    nationality: 'nationality',
+    religion: 'religion',
+    blood_type: 'blood_type',
   };
-  const { sortedRows: sortedStudents, toggleSort: toggleStuSort, SortIcon: StuSortIcon } =
-    useTableSort(data?.data, STU_SORT_FIELD);
+  const {
+    sortedRows: sortedStudents,
+    toggleSort: toggleStuSort,
+    SortIcon: StuSortIcon,
+  } = useTableSort(data?.data, STU_SORT_FIELD);
 
   const { data: archivedData, isLoading: archivedLoading } = useQuery({
     queryKey: ['students-archived'],
@@ -207,9 +256,17 @@ export function StudentsPage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const editPhotoRef = useRef();
   const createPhotoRef = useRef();
+  const importInputRef = useRef();
 
   const [editParents, setEditParents] = useState([]);
-  const [createContacts, setCreateContacts] = useState([{ full_name: '', relationship: '', phone: '' }]);
+  const [editParentsDirty, setEditParentsDirty] = useState(false);
+  const mutateEditParents = (fn) => {
+    setEditParents(fn);
+    setEditParentsDirty(true);
+  };
+  const [createContacts, setCreateContacts] = useState([
+    { full_name: '', relationship: '', phone: '' },
+  ]);
 
   // Crop state
   const [cropSrc, setCropSrc] = useState(null);
@@ -225,15 +282,25 @@ export function StudentsPage() {
         const MAX = 1200;
         let { width, height } = img;
         if (width > MAX || height > MAX) {
-          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
-          else { width = Math.round(width * MAX / height); height = MAX; }
+          if (width > height) {
+            height = Math.round((height * MAX) / width);
+            width = MAX;
+          } else {
+            width = Math.round((width * MAX) / height);
+            height = MAX;
+          }
         }
         const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
+        canvas.width = width;
+        canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
         canvas.toBlob(
-          (blob) => resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
-          'image/jpeg', 0.85,
+          (blob) =>
+            resolve(
+              new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }),
+            ),
+          'image/jpeg',
+          0.85,
         );
       };
       img.src = objUrl;
@@ -282,10 +349,11 @@ export function StudentsPage() {
     onSuccess: () => {
       toast.success('Đã khôi phục học sinh');
       queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['students-archived'] });
     },
   });
 
-const createForm = useForm({ resolver: zodResolver(createSchema) });
+  const createForm = useForm({ resolver: zodResolver(createSchema) });
   const updateForm = useForm({ resolver: zodResolver(updateSchema) });
 
   const onOpenCreate = () => {
@@ -317,16 +385,52 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
     setCreateOpen(true);
   };
 
+  const onOpenParents = (s) => {
+    setEditing(s);
+    setEditParents(s.parents?.map((p) => ({ ...p })) ?? []);
+    setEditParentsDirty(false);
+    setParentsOpen(true);
+  };
+
+  const onParentsSubmit = async () => {
+    if (!editing) return;
+    const missingPhone = editParents.some(
+      (p) => (p.full_name?.trim() || p._new) && !p.phone?.trim(),
+    );
+    if (missingPhone) {
+      toast.error('Vui lòng nhập số điện thoại cho tất cả phụ huynh');
+      return;
+    }
+    const items = editParents
+      .filter((p) => p.full_name?.trim())
+      .map((p) => ({
+        parent_id: p.parent_id || undefined,
+        full_name: p.full_name,
+        phone: p.phone?.trim() || '',
+        relationship: p.relationship || '',
+      }));
+    if (items.length === 0) {
+      setParentsOpen(false);
+      return;
+    }
+    try {
+      await apiClient.patch(`/students/${editing.student_id}/parents`, { parents: items });
+      toast.success('Đã cập nhật phụ huynh');
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      setParentsOpen(false);
+    } catch (e) {
+      toast.error(e?.response?.data?.message ?? 'Cập nhật phụ huynh thất bại');
+    }
+  };
+
   const onOpenEdit = (s) => {
     setEditing(s);
     setEditPhotoFile(null);
     setEditPhotoPreview(s.photo_url ?? null);
-    setEditParents(s.parents?.map((p) => ({ ...p })) ?? []);
     updateForm.reset({
       full_name: s.full_name,
       date_of_birth: s.date_of_birth?.slice(0, 10) ?? '',
       gender: s.gender,
-      grade_level: s.grade_level ?? '',
       student_status: s.student_status ?? 'Đang học',
       enrollment_date: s.enrollment_date ? s.enrollment_date.slice(0, 10) : '',
       ethnicity: s.ethnicity ?? '',
@@ -347,10 +451,12 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
 
   const onCreateSubmit = async (v) => {
     const { parent_name, parent_relationship, parent_phone, ...rest } = v;
-    // Validate: mọi row phụ huynh có full_name phải có SĐT
     const filledContacts = createContacts.filter((c) => c.full_name.trim() || c.phone.trim());
     const missingPhone = filledContacts.some((c) => !c.phone.trim());
-    if (missingPhone) { toast.error('Vui lòng nhập số điện thoại cho tất cả phụ huynh'); return; }
+    if (missingPhone) {
+      toast.error('Vui lòng nhập số điện thoại cho tất cả phụ huynh');
+      return;
+    }
     const payload = { ...rest };
     const validContacts = filledContacts.filter((c) => c.full_name.trim());
     if (validContacts.length > 0) {
@@ -363,37 +469,14 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
     const res = await create.mutateAsync(payload);
     const newId = res?.data?.student_id ?? res?.student_id;
     setCreateOpen(false);
-    if (newId && createPhotoFile) uploadPhoto(newId, createPhotoFile); // background, toast on fail
+    if (newId && createPhotoFile) uploadPhoto(newId, createPhotoFile);
   };
 
   const onUpdateSubmit = async (v) => {
     if (editing) {
-      // Validate: mọi phụ huynh có tên phải có SĐT
-      const missingPhone = editParents.some((p) => (p.full_name?.trim() || p._new) && !p.phone?.trim());
-      if (missingPhone) { toast.error('Vui lòng nhập số điện thoại cho tất cả phụ huynh'); return; }
-
       const { photo_url, ...profileData } = v;
-      // Run profile save + parent updates in parallel
-      const parentUpdates = editParents.map((p) => {
-        if (p._new && p.full_name?.trim()) {
-          return apiClient.post(`/students/${editing.student_id}/parents`, {
-            full_name: p.full_name, relationship: p.relationship || undefined,
-            phone: p.phone.trim(),
-          }).catch(() => {});
-        } else if (p.parent_id) {
-          return apiClient.patch(`/students/parents/${p.parent_id}`, {
-            full_name: p.full_name, phone: p.phone, relationship: p.relationship,
-          }).catch(() => {});
-        }
-        return null;
-      }).filter(Boolean);
-
-      await Promise.all([
-        update.mutateAsync({ id: editing.student_id, data: profileData }),
-        ...parentUpdates,
-      ]);
-
-      setEditOpen(false); // close modal immediately after data saved
+      await update.mutateAsync({ id: editing.student_id, data: profileData });
+      setEditOpen(false);
       if (editPhotoFile) uploadPhoto(editing.student_id, editPhotoFile); // upload in background
     }
   };
@@ -411,49 +494,61 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = async (file) => {
-    const fd = new FormData();
-    fd.append('file', file);
+  const handleDownloadTemplate = async () => {
+    const res = await apiClient.get('/students/import/template', { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mau_nhap_hoc_sinh.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const [importFile, setImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleFileSelect = async (file) => {
+    setImportFile(file);
+    setImportPreview(null);
+    setPreviewOpen(true);
+    setPreviewLoading(true);
     try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await apiClient.post('/students/import/preview', fd);
+      setImportPreview(unwrap(res.data));
+    } catch (e) {
+      setImportPreview({ fatal: e?.response?.data?.message ?? 'Lỗi đọc file', rows: [] });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importFile) return;
+    setConfirming(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', importFile);
       const res = await apiClient.post('/students/import', fd);
       const r = unwrap(res.data);
-      toast.success(`${r.success_count} tạo, ${r.error_count} lỗi`);
-    } catch {
-      // toast handled
+      toast.success(`Nhập xong: ${r.success_count} thành công, ${r.error_count} lỗi`);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      setPreviewOpen(false);
+      setImportFile(null);
+    } catch (e) {
+      toast.error(e?.response?.data?.message ?? 'Nhập thất bại');
+    } finally {
+      setConfirming(false);
     }
   };
 
   return (
     <>
-      <PageHeader
-        title="Học sinh"
-        description="Hồ sơ học sinh"
-        actions={<>
-          <ColumnToggle columns={COLS} hidden={hiddenCols} onHiddenChange={setHiddenCols} order={colOrder} onOrderChange={setColOrder} />
-          <Button variant="outline" size="icon" title="Xuất Excel" onClick={handleExport}>
-            <Download className="h-4 w-4" />
-          </Button>
-          {isBGH && (
-            <label title="Nhập Excel">
-              <input type="file" accept=".xlsx" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ''; }} />
-              <Button variant="outline" size="icon" asChild>
-                <span><Upload className="h-4 w-4" /></span>
-              </Button>
-            </label>
-          )}
-          {isBGH && (
-            <Button variant="outline" size="icon" title="Học sinh đã lưu trữ" onClick={() => setArchiveOpen(true)}>
-              <Archive className="h-4 w-4" />
-            </Button>
-          )}
-          {isBGH && (
-            <Button size="sm" onClick={onOpenCreate}>
-              <Plus className="h-4 w-4 mr-1.5" /> Tạo học sinh
-            </Button>
-          )}
-        </>}
-      />
+      <PageHeader title="Học sinh" description="Hồ sơ học sinh" />
 
       <div className="flex gap-2 mb-4 flex-wrap">
         <form
@@ -473,7 +568,9 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
-          <Button type="submit" variant="secondary">Tìm</Button>
+          <Button type="submit" variant="secondary">
+            Tìm
+          </Button>
         </form>
         <Select
           value={classFilter}
@@ -494,119 +591,242 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
             ))}
           </SelectContent>
         </Select>
+        <div className="flex-1" />
+        <ColumnToggle
+          columns={COLS}
+          hidden={hiddenCols}
+          onHiddenChange={setHiddenCols}
+          order={colOrder}
+          onOrderChange={setColOrder}
+        />
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFileSelect(f);
+            e.target.value = '';
+          }}
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" /> Excel
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" /> Xuất danh sách
+            </DropdownMenuItem>
+            {isBGH && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleDownloadTemplate}>
+                  <FileDown className="h-4 w-4 mr-2" /> Tải form mẫu
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => importInputRef.current?.click()}>
+                  <Upload className="h-4 w-4 mr-2" /> Nhập từ Excel
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {isBGH && (
+          <Button
+            variant="outline"
+            size="icon"
+            title="Học sinh đã lưu trữ"
+            onClick={() => {
+              setArchiveOpen(true);
+              queryClient.invalidateQueries({ queryKey: ['students-archived'] });
+            }}
+          >
+            <Archive className="h-4 w-4" />
+          </Button>
+        )}
+        {isBGH && (
+          <Button size="sm" onClick={onOpenCreate}>
+            <Plus className="h-4 w-4 mr-1.5" /> Tạo học sinh
+          </Button>
+        )}
       </div>
 
       <div className="bg-card rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              {orderedCols.filter((c) => show(c.key)).map((c) => (
-                <TableHead
-                  key={c.key}
-                  className={STU_SORT_FIELD[c.key] ? 'cursor-pointer select-none hover:bg-muted/50' : ''}
-                  onClick={() => toggleStuSort(c.key)}
-                >
-                  {c.label}<StuSortIcon colKey={c.key} />
-                </TableHead>
-              ))}
+              {orderedCols
+                .filter((c) => show(c.key))
+                .map((c) => (
+                  <TableHead
+                    key={c.key}
+                    className={
+                      STU_SORT_FIELD[c.key] ? 'cursor-pointer select-none hover:bg-muted/50' : ''
+                    }
+                    onClick={() => toggleStuSort(c.key)}
+                  >
+                    {c.label}
+                    <StuSortIcon colKey={c.key} />
+                  </TableHead>
+                ))}
               {isBGH && <TableHead className="text-right">Thao tác</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={orderedCols.filter((c) => show(c.key)).length + 1} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={orderedCols.filter((c) => show(c.key)).length + 1}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   Đang tải...
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && !data?.data?.length && (
               <TableRow>
-                <TableCell colSpan={orderedCols.filter((c) => show(c.key)).length + 1} className="text-center py-10 text-muted-foreground">
+                <TableCell
+                  colSpan={orderedCols.filter((c) => show(c.key)).length + 1}
+                  className="text-center py-10 text-muted-foreground"
+                >
                   Chưa có học sinh
                 </TableCell>
               </TableRow>
             )}
             {sortedStudents.map((s) => {
-              const sc = s.student_classes[0];
+              const sc = s.enrollments[0];
               const renderStudentCell = (key) => {
                 switch (key) {
-                  case 'photo': return (
-                    <TableCell key={key}>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={cloudinaryThumb(s.photo_url, 80) ?? undefined} />
-                        <AvatarFallback className="text-xs">{s.full_name.split(' ').slice(-1)[0]?.[0] ?? '?'}</AvatarFallback>
-                      </Avatar>
-                    </TableCell>
-                  );
-                  case 'card': return <TableCell key={key} className="font-medium">{s.student_id_card_number}</TableCell>;
-                  case 'name': return <TableCell key={key}>{s.full_name}</TableCell>;
-                  case 'dob': return <TableCell key={key}>{fmtDate(s.date_of_birth)}</TableCell>;
-                  case 'gender': return <TableCell key={key}>{s.gender}</TableCell>;
-                  case 'grade': return <TableCell key={key}>{s.grade_level ?? '—'}</TableCell>;
-                  case 'class': return <TableCell key={key}>{sc?.class.class_name ?? '—'}</TableCell>;
-                  case 'student_status': return <TableCell key={key}>{s.student_status ?? 'Đang học'}</TableCell>;
-                  case 'parent_phone': return (
-                    <TableCell key={key}>
-                      <div className="space-y-0.5">
-                        {s.parents?.filter((p) => p.phone).length > 0
-                          ? s.parents.filter((p) => p.phone).map((p, i) => (
-                              <div key={i} className="flex items-center gap-1.5">
-                                <span className="text-xs text-muted-foreground w-12 shrink-0">{p.relationship ?? '—'}</span>
-                                <span className="text-sm">{p.phone}</span>
-                              </div>
-                            ))
-                          : <span className="text-muted-foreground">—</span>}
-                      </div>
-                    </TableCell>
-                  );
-                  case 'enrollment_date': return <TableCell key={key}>{fmtDate(s.enrollment_date)}</TableCell>;
-                  case 'birth_place': return <TableCell key={key}>{s.birth_place ?? '—'}</TableCell>;
-                  case 'ethnicity': return <TableCell key={key}>{s.ethnicity ?? '—'}</TableCell>;
-                  case 'nationality': return <TableCell key={key}>{s.nationality ?? '—'}</TableCell>;
-                  case 'religion': return <TableCell key={key}>{s.religion ?? '—'}</TableCell>;
-                  case 'blood_type': return <TableCell key={key}>{s.blood_type ?? '—'}</TableCell>;
-                  case 'current_address': return <TableCell key={key}>{s.current_address ?? '—'}</TableCell>;
-                  default: return null;
+                  case 'photo':
+                    return (
+                      <TableCell key={key}>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={cloudinaryThumb(s.photo_url, 80) ?? undefined} />
+                          <AvatarFallback className="text-xs">
+                            {s.full_name.split(' ').slice(-1)[0]?.[0] ?? '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                      </TableCell>
+                    );
+                  case 'card':
+                    return (
+                      <TableCell key={key} className="font-medium">
+                        {s.student_id_card_number}
+                      </TableCell>
+                    );
+                  case 'name':
+                    return <TableCell key={key}>{s.full_name}</TableCell>;
+                  case 'dob':
+                    return <TableCell key={key}>{fmtDate(s.date_of_birth)}</TableCell>;
+                  case 'gender':
+                    return <TableCell key={key}>{s.gender}</TableCell>;
+                  case 'grade':
+                    return <TableCell key={key}>{s.grade_level ?? '—'}</TableCell>;
+                  case 'class':
+                    return <TableCell key={key}>{sc?.class?.class_name ?? '—'}</TableCell>;
+                  case 'student_status': {
+                    const st = s.student_status ?? 'Đang học';
+                    const stCls =
+                      st === 'Đang học'
+                        ? 'text-green-700'
+                        : st === 'Hoàn thành chương trình'
+                          ? 'text-blue-600'
+                          : st.startsWith('Thôi học')
+                            ? 'text-red-600'
+                            : 'text-muted-foreground';
+                    return (
+                      <TableCell key={key}>
+                        <span className={stCls}>{st}</span>
+                      </TableCell>
+                    );
+                  }
+                  case 'parent_phone':
+                    return (
+                      <TableCell key={key}>
+                        <div className="space-y-0.5">
+                          {s.parents?.filter((p) => p.phone).length > 0 ? (
+                            s.parents
+                              .filter((p) => p.phone)
+                              .map((p, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                  <span className="text-xs text-muted-foreground w-12 shrink-0">
+                                    {p.relationship ?? '—'}
+                                  </span>
+                                  <span className="text-sm">{p.phone}</span>
+                                </div>
+                              ))
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </TableCell>
+                    );
+                  case 'enrollment_date':
+                    return <TableCell key={key}>{fmtDate(s.enrollment_date)}</TableCell>;
+                  case 'birth_place':
+                    return <TableCell key={key}>{s.birth_place ?? '—'}</TableCell>;
+                  case 'ethnicity':
+                    return <TableCell key={key}>{s.ethnicity ?? '—'}</TableCell>;
+                  case 'nationality':
+                    return <TableCell key={key}>{s.nationality ?? '—'}</TableCell>;
+                  case 'religion':
+                    return <TableCell key={key}>{s.religion ?? '—'}</TableCell>;
+                  case 'blood_type':
+                    return <TableCell key={key}>{s.blood_type ?? '—'}</TableCell>;
+                  case 'current_address':
+                    return <TableCell key={key}>{s.current_address ?? '—'}</TableCell>;
+                  default:
+                    return null;
                 }
               };
               return (
-                <TableRow key={s.student_id} className={s.deleted_at ? 'opacity-50' : ''}>
+                <TableRow
+                  key={s.student_id}
+                  className={`cursor-pointer hover:bg-accent ${s.deleted_at ? 'opacity-50' : ''}`}
+                  onClick={() => setViewing(s)}
+                >
                   {orderedCols.filter((c) => show(c.key)).map((c) => renderStudentCell(c.key))}
                   {isStaff && (
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="outline" size="icon" className="h-8 w-8">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          {s.deleted_at ? (
-                            isBGH && (
-                              <DropdownMenuItem onClick={() => restore.mutate(s.student_id)} disabled={restore.isPending}>
-                                <ArchiveRestore className="h-4 w-4 mr-2 text-primary" />
-                                Khôi phục
-                              </DropdownMenuItem>
-                            )
-                          ) : (
-                            isBGH && (
-                              <>
-                                <DropdownMenuItem onClick={() => onOpenEdit(s)}>
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Chỉnh sửa
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
+                        <DropdownMenuContent align="end" className="w-56">
+                          {s.deleted_at
+                            ? isBGH && (
                                 <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => setDeleting(s)}
+                                  onClick={() => restore.mutate(s.student_id)}
+                                  disabled={restore.isPending}
                                 >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Lưu trữ
+                                  <ArchiveRestore className="h-4 w-4 mr-2 text-primary" />
+                                  Khôi phục
                                 </DropdownMenuItem>
-                              </>
-                            )
-                          )}
+                              )
+                            : isBGH && (
+                                <>
+                                  <DropdownMenuItem onClick={() => onOpenEdit(s)}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Cập nhật học sinh
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => onOpenParents(s)}>
+                                    <Users className="h-4 w-4 mr-2" />
+                                    Cập nhật phụ huynh
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setDeleting(s)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Lưu trữ
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -628,6 +848,112 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
         />
       )}
 
+      {/* Student detail drawer */}
+      <Sheet open={!!viewing} onOpenChange={(v) => !v && setViewing(null)}>
+        <SheetContent side="right" className="overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Chi tiết học sinh</SheetTitle>
+          </SheetHeader>
+          {viewing &&
+            (() => {
+              const vc = viewing.enrollments?.[0];
+              const st = viewing.student_status ?? 'Đang học';
+              const stCls =
+                st === 'Đang học'
+                  ? 'text-green-700'
+                  : st === 'Hoàn thành chương trình'
+                    ? 'text-blue-600'
+                    : st.startsWith('Thôi học')
+                      ? 'text-red-600'
+                      : 'text-muted-foreground';
+              return (
+                <div className="space-y-4 mt-5">
+                  {/* Header */}
+                  <div className="rounded-lg border bg-muted/30 px-4 py-3 flex items-center gap-3">
+                    <Avatar className="h-14 w-14">
+                      <AvatarImage src={cloudinaryThumb(viewing.photo_url, 128) ?? undefined} />
+                      <AvatarFallback>
+                        {viewing.full_name?.split(' ').slice(-1)[0]?.[0] ?? '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{viewing.full_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {viewing.student_id_card_number}
+                      </p>
+                      <p className={`text-sm mt-0.5 ${stCls}`}>{st}</p>
+                    </div>
+                  </div>
+
+                  <DetailSection title="Học tập">
+                    <InfoRow label="Khối" value={viewing.grade_level} />
+                    <InfoRow label="Lớp" value={vc?.class?.class_name} />
+                    <InfoRow
+                      label="Năm học"
+                      value={vc?.class?.school_year?.name ?? vc?.school_year?.name}
+                    />
+                    <InfoRow
+                      label="Ngày nhập học"
+                      value={viewing.enrollment_date ? fmtDate(viewing.enrollment_date) : null}
+                    />
+                  </DetailSection>
+
+                  <DetailSection title="Thông tin cá nhân">
+                    <InfoRow label="Ngày sinh" value={fmtDate(viewing.date_of_birth)} />
+                    <InfoRow label="Giới tính" value={viewing.gender} />
+                    <InfoRow label="Dân tộc" value={viewing.ethnicity} />
+                    <InfoRow label="Quốc tịch" value={viewing.nationality} />
+                    <InfoRow label="Tôn giáo" value={viewing.religion} />
+                    <InfoRow label="Nhóm máu" value={viewing.blood_type} />
+                    <InfoRow label="Nơi sinh" value={viewing.birth_place} />
+                  </DetailSection>
+
+                  <DetailSection title="Liên hệ">
+                    <InfoRow label="SĐT liên hệ" value={viewing.contact_phone} />
+                    <InfoRow label="Địa chỉ hiện tại" value={viewing.current_address} />
+                  </DetailSection>
+
+                  {viewing.parents?.length > 0 && (
+                    <DetailSection title="Phụ huynh">
+                      {viewing.parents.map((p, i) => (
+                        <InfoRow
+                          key={i}
+                          label={p.relationship ?? 'PH'}
+                          value={`${p.full_name}${p.phone ? ` — ${p.phone}` : ''}`}
+                        />
+                      ))}
+                    </DetailSection>
+                  )}
+
+                  {isBGH && !viewing.deleted_at && (
+                    <div className="border-t pt-4 flex flex-wrap gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const s = viewing;
+                          setViewing(null);
+                          onOpenParents(s);
+                        }}
+                      >
+                        <Users className="h-4 w-4 mr-1.5" /> Cập nhật phụ huynh
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          const s = viewing;
+                          setViewing(null);
+                          onOpenEdit(s);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4 mr-1.5" /> Chỉnh sửa
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+        </SheetContent>
+      </Sheet>
+
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-3xl">
@@ -635,26 +961,35 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
             <DialogTitle>Cập nhật hồ sơ học sinh</DialogTitle>
           </DialogHeader>
           {editing && (
-            <form onSubmit={updateForm.handleSubmit(onUpdateSubmit)} className="space-y-3 max-h-[75vh] overflow-y-auto pr-2">
+            <form
+              onSubmit={updateForm.handleSubmit(onUpdateSubmit)}
+              className="space-y-3 max-h-[75vh] overflow-y-auto pr-2"
+            >
               <div>
                 <Label>Mã thẻ HS</Label>
                 <Input value={editing.student_id_card_number} disabled />
                 <p className="text-xs text-muted-foreground mt-1">Không thể đổi mã thẻ</p>
               </div>
               <div>
-                <Label>Họ tên <span className="text-destructive">*</span></Label>
+                <Label>
+                  Họ tên <span className="text-destructive">*</span>
+                </Label>
                 <Input {...updateForm.register('full_name')} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label>Ngày sinh <span className="text-destructive">*</span></Label>
+                  <Label>
+                    Ngày sinh <span className="text-destructive">*</span>
+                  </Label>
                   <Input type="date" {...updateForm.register('date_of_birth')} />
                 </div>
                 <div>
-                  <Label>Giới tính <span className="text-destructive">*</span></Label>
+                  <Label>
+                    Giới tính <span className="text-destructive">*</span>
+                  </Label>
                   <Select
                     value={updateForm.watch('gender')}
-                    onValueChange={(v) => updateForm.setValue('gender', v)}
+                    onValueChange={(v) => updateForm.setValue('gender', v, { shouldDirty: true })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -666,38 +1001,26 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Khối</Label>
-                  <Select
-                    value={updateForm.watch('grade_level') || 'none'}
-                    onValueChange={(v) => updateForm.setValue('grade_level', v === 'none' ? '' : v)}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Chọn khối" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Chưa phân khối —</SelectItem>
-                      <SelectItem value="Nhà trẻ">Nhà trẻ</SelectItem>
-                      <SelectItem value="Mầm">Mầm</SelectItem>
-                      <SelectItem value="Chồi">Chồi</SelectItem>
-                      <SelectItem value="Lá">Lá</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Ngày nhập học</Label>
-                  <Input type="date" {...updateForm.register('enrollment_date')} />
-                </div>
+              <div>
+                <Label>Ngày nhập học</Label>
+                <Input type="date" {...updateForm.register('enrollment_date')} />
               </div>
               <div>
                 <Label>Tình trạng học vụ</Label>
                 <Select
                   value={updateForm.watch('student_status') || 'Đang học'}
-                  onValueChange={(v) => updateForm.setValue('student_status', v)}
+                  onValueChange={(v) =>
+                    updateForm.setValue('student_status', v, { shouldDirty: true })
+                  }
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {STUDENT_STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -726,7 +1049,9 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
                   <Input {...updateForm.register('religion')} />
                 </div>
               </div>
-              <div className="border-t pt-2 text-xs font-medium text-muted-foreground">Hộ khẩu thường trú</div>
+              <div className="border-t pt-2 text-xs font-medium text-muted-foreground">
+                Hộ khẩu thường trú
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label>Tỉnh/TP</Label>
@@ -745,7 +1070,9 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
                 <Label>Địa chỉ hiện tại</Label>
                 <Input {...updateForm.register('current_address')} />
               </div>
-              <div className="border-t pt-2 text-xs font-medium text-muted-foreground">Quê quán</div>
+              <div className="border-t pt-2 text-xs font-medium text-muted-foreground">
+                Quê quán
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label>Tỉnh/TP</Label>
@@ -756,57 +1083,44 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
                   <Input {...updateForm.register('hometown_ward')} />
                 </div>
               </div>
-              <div className="border-t pt-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Phụ huynh</span>
-                <button type="button" className="text-xs text-primary hover:underline flex items-center gap-1"
-                  onClick={() => setEditParents((arr) => [...arr, { full_name: '', relationship: '', phone: '', _new: true }])}>
-                  <Plus className="h-3 w-3" /> Thêm
-                </button>
-              </div>
-              {editParents.map((p, i) => (
-                <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
-                  <div>
-                    {i === 0 && <Label className="text-xs">Họ tên <span className="text-destructive">*</span></Label>}
-                    <Input placeholder="Nguyễn Văn A" value={p.full_name ?? ''}
-                      onChange={(e) => setEditParents((arr) => arr.map((x, j) => j === i ? { ...x, full_name: e.target.value } : x))} />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Số điện thoại <span className="text-destructive">*</span></Label>}
-                    <Input
-                      placeholder="SĐT"
-                      value={p.phone ?? ''}
-                      onChange={(e) => setEditParents((arr) => arr.map((x, j) => j === i ? { ...x, phone: e.target.value } : x))}
-                    />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Quan hệ</Label>}
-                    <Input placeholder="Cha / Mẹ" value={p.relationship ?? ''}
-                      onChange={(e) => setEditParents((arr) => arr.map((x, j) => j === i ? { ...x, relationship: e.target.value } : x))} />
-                  </div>
-                  <button type="button" className="pb-1 text-muted-foreground hover:text-destructive transition-colors"
-                    onClick={() => setEditParents((arr) => arr.filter((_, j) => j !== i))}>
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
               <div>
                 <Label>Ảnh học sinh</Label>
-                <button type="button" onClick={() => editPhotoRef.current?.click()}
-                  className="mt-1 w-28 aspect-square border-2 border-dashed border-muted-foreground/25 rounded-xl overflow-hidden hover:border-primary/40 transition-colors group block">
-                  {editPhotoPreview
-                    ? <img src={editPhotoPreview} alt="" className="w-full h-full object-cover" />
-                    : <div className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
-                        <Upload className="h-4 w-4" />
-                        <span className="text-[10px] text-center px-1">Chọn ảnh</span>
-                      </div>
-                  }
+                <button
+                  type="button"
+                  onClick={() => editPhotoRef.current?.click()}
+                  className="mt-1 w-28 aspect-square border-2 border-dashed border-muted-foreground/25 rounded-xl overflow-hidden hover:border-primary/40 transition-colors group block"
+                >
+                  {editPhotoPreview ? (
+                    <img src={editPhotoPreview} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
+                      <Upload className="h-4 w-4" />
+                      <span className="text-[10px] text-center px-1">Chọn ảnh</span>
+                    </div>
+                  )}
                 </button>
-                <input ref={editPhotoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) pickPhoto(f, 'edit'); e.target.value = ''; }} />
+                <input
+                  ref={editPhotoRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) pickPhoto(f, 'edit');
+                    e.target.value = '';
+                  }}
+                />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Hủy</Button>
-                <Button type="submit" disabled={update.isPending}>Cập nhật</Button>
+                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={update.isPending || (!updateForm.formState.isDirty && !editPhotoFile)}
+                >
+                  Cập nhật
+                </Button>
               </DialogFooter>
             </form>
           )}
@@ -819,170 +1133,351 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
           <DialogHeader>
             <DialogTitle>Tạo hồ sơ học sinh mới</DialogTitle>
           </DialogHeader>
-            <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-3 max-h-[75vh] overflow-y-auto pr-2">
-              <p className="text-xs text-muted-foreground">Mã thẻ HS sẽ tự động tạo sau khi lưu.</p>
+          <form
+            onSubmit={createForm.handleSubmit(onCreateSubmit)}
+            className="space-y-3 max-h-[75vh] overflow-y-auto pr-2"
+          >
+            <p className="text-xs text-muted-foreground">Mã thẻ HS sẽ tự động tạo sau khi lưu.</p>
+            <div>
+              <Label>
+                Họ tên <span className="text-destructive">*</span>
+              </Label>
+              <Input {...createForm.register('full_name')} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Họ tên <span className="text-destructive">*</span></Label>
-                <Input {...createForm.register('full_name')} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Ngày sinh <span className="text-destructive">*</span></Label>
-                  <Input type="date" {...createForm.register('date_of_birth')} />
-                </div>
-                <div>
-                  <Label>Giới tính <span className="text-destructive">*</span></Label>
-                  <Select defaultValue="Nam" onValueChange={(v) => createForm.setValue('gender', v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Nam">Nam</SelectItem>
-                      <SelectItem value="Nữ">Nữ</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Khối</Label>
-                  <Select
-                    value={createForm.watch('grade_level') || 'none'}
-                    onValueChange={(v) => createForm.setValue('grade_level', v === 'none' ? '' : v)}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Chọn khối" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Chưa phân khối —</SelectItem>
-                      <SelectItem value="Nhà trẻ">Nhà trẻ</SelectItem>
-                      <SelectItem value="Mầm">Mầm</SelectItem>
-                      <SelectItem value="Chồi">Chồi</SelectItem>
-                      <SelectItem value="Lá">Lá</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Ngày nhập học</Label>
-                  <Input type="date" {...createForm.register('enrollment_date')} />
-                </div>
+                <Label>
+                  Ngày sinh <span className="text-destructive">*</span>
+                </Label>
+                <Input type="date" {...createForm.register('date_of_birth')} />
               </div>
               <div>
-                <Label>Lớp (tùy chọn)</Label>
-                <Select onValueChange={(v) => createForm.setValue('class_id', Number(v))}>
-                  <SelectTrigger><SelectValue placeholder="Chọn lớp..." /></SelectTrigger>
+                <Label>
+                  Giới tính <span className="text-destructive">*</span>
+                </Label>
+                <Select defaultValue="Nam" onValueChange={(v) => createForm.setValue('gender', v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {classes?.data.map((c) => (
+                    <SelectItem value="Nam">Nam</SelectItem>
+                    <SelectItem value="Nữ">Nữ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Khối</Label>
+                <Select
+                  value={createForm.watch('grade_level') || 'none'}
+                  onValueChange={(v) => {
+                    createForm.setValue('grade_level', v === 'none' ? '' : v);
+                    createForm.setValue('class_id', undefined); // reset class when grade changes
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn khối" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Chưa phân khối —</SelectItem>
+                    <SelectItem value="Nhà trẻ">Nhà trẻ</SelectItem>
+                    <SelectItem value="Mầm">Mầm</SelectItem>
+                    <SelectItem value="Chồi">Chồi</SelectItem>
+                    <SelectItem value="Lá">Lá</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Ngày nhập học</Label>
+                <Input type="date" {...createForm.register('enrollment_date')} />
+              </div>
+            </div>
+            <div>
+              <Label>Lớp (tùy chọn)</Label>
+              <Select
+                value={
+                  createForm.watch('class_id') ? String(createForm.watch('class_id')) : undefined
+                }
+                onValueChange={(v) => createForm.setValue('class_id', Number(v))}
+                disabled={!createForm.watch('grade_level')}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      createForm.watch('grade_level') ? 'Chọn lớp...' : 'Chọn khối trước'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {(classes?.data ?? [])
+                    .filter((c) => c.age_group === createForm.watch('grade_level'))
+                    .map((c) => (
                       <SelectItem key={c.class_id} value={String(c.class_id)}>
                         {c.class_name} ({c.school_year.name})
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Nơi sinh</Label>
-                  <Input {...createForm.register('birth_place')} />
-                </div>
-                <div>
-                  <Label>Nhóm máu</Label>
-                  <Input {...createForm.register('blood_type')} />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <Label>Dân tộc</Label>
-                  <Input {...createForm.register('ethnicity')} />
-                </div>
-                <div>
-                  <Label>Quốc tịch</Label>
-                  <Input {...createForm.register('nationality')} />
-                </div>
-                <div>
-                  <Label>Tôn giáo</Label>
-                  <Input {...createForm.register('religion')} />
-                </div>
-              </div>
-              <div className="border-t pt-2 text-xs font-medium text-muted-foreground">Hộ khẩu thường trú</div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Tỉnh/TP</Label>
-                  <Input {...createForm.register('permanent_province')} />
-                </div>
-                <div>
-                  <Label>Phường/Xã</Label>
-                  <Input {...createForm.register('permanent_ward')} />
-                </div>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Nơi sinh</Label>
+                <Input {...createForm.register('birth_place')} />
               </div>
               <div>
-                <Label>Địa chỉ chi tiết</Label>
-                <Input {...createForm.register('permanent_address_detail')} />
+                <Label>Nhóm máu</Label>
+                <Input {...createForm.register('blood_type')} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label>Dân tộc</Label>
+                <Input {...createForm.register('ethnicity')} />
               </div>
               <div>
-                <Label>Địa chỉ hiện tại</Label>
-                <Input {...createForm.register('current_address')} />
+                <Label>Quốc tịch</Label>
+                <Input {...createForm.register('nationality')} />
               </div>
-              <div className="border-t pt-2 text-xs font-medium text-muted-foreground">Quê quán</div>
-              <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Tôn giáo</Label>
+                <Input {...createForm.register('religion')} />
+              </div>
+            </div>
+            <div className="border-t pt-2 text-xs font-medium text-muted-foreground">
+              Hộ khẩu thường trú
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Tỉnh/TP</Label>
+                <Input {...createForm.register('permanent_province')} />
+              </div>
+              <div>
+                <Label>Phường/Xã</Label>
+                <Input {...createForm.register('permanent_ward')} />
+              </div>
+            </div>
+            <div>
+              <Label>Địa chỉ chi tiết</Label>
+              <Input {...createForm.register('permanent_address_detail')} />
+            </div>
+            <div>
+              <Label>Địa chỉ hiện tại</Label>
+              <Input {...createForm.register('current_address')} />
+            </div>
+            <div className="border-t pt-2 text-xs font-medium text-muted-foreground">Quê quán</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Tỉnh/TP</Label>
+                <Input {...createForm.register('hometown_province')} />
+              </div>
+              <div>
+                <Label>Phường/Xã</Label>
+                <Input {...createForm.register('hometown_ward')} />
+              </div>
+            </div>
+            <div className="border-t pt-2 flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">
+                Phụ huynh (tối đa 2)
+              </span>
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                disabled={createContacts.length >= 2}
+                onClick={() =>
+                  setCreateContacts((c) => [...c, { full_name: '', relationship: '', phone: '' }])
+                }
+              >
+                <Plus className="h-3 w-3" /> Thêm
+              </button>
+            </div>
+            {createContacts.map((c, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
                 <div>
-                  <Label>Tỉnh/TP</Label>
-                  <Input {...createForm.register('hometown_province')} />
+                  {i === 0 && (
+                    <Label className="text-xs">
+                      Họ tên <span className="text-destructive">*</span>
+                    </Label>
+                  )}
+                  <Input
+                    placeholder="Nguyễn Văn A"
+                    value={c.full_name}
+                    onChange={(e) =>
+                      setCreateContacts((arr) =>
+                        arr.map((x, j) => (j === i ? { ...x, full_name: e.target.value } : x)),
+                      )
+                    }
+                  />
                 </div>
                 <div>
-                  <Label>Phường/Xã</Label>
-                  <Input {...createForm.register('hometown_ward')} />
+                  {i === 0 && (
+                    <Label className="text-xs">
+                      Số điện thoại <span className="text-destructive">*</span>
+                    </Label>
+                  )}
+                  <Input
+                    placeholder="SĐT"
+                    value={c.phone}
+                    onChange={(e) =>
+                      setCreateContacts((arr) =>
+                        arr.map((x, j) => (j === i ? { ...x, phone: e.target.value } : x)),
+                      )
+                    }
+                  />
                 </div>
-              </div>
-              <div className="border-t pt-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Phụ huynh</span>
-                <button type="button" className="text-xs text-primary hover:underline flex items-center gap-1"
-                  onClick={() => setCreateContacts((c) => [...c, { full_name: '', relationship: '', phone: '' }])}>
-                  <Plus className="h-3 w-3" /> Thêm
+                <div>
+                  {i === 0 && <Label className="text-xs">Quan hệ</Label>}
+                  <Input
+                    placeholder="Cha / Mẹ"
+                    value={c.relationship}
+                    onChange={(e) =>
+                      setCreateContacts((arr) =>
+                        arr.map((x, j) => (j === i ? { ...x, relationship: e.target.value } : x)),
+                      )
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="pb-1 text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={() => setCreateContacts((arr) => arr.filter((_, j) => j !== i))}
+                >
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-              {createContacts.map((c, i) => (
-                <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
-                  <div>
-                    {i === 0 && <Label className="text-xs">Họ tên <span className="text-destructive">*</span></Label>}
-                    <Input placeholder="Nguyễn Văn A" value={c.full_name}
-                      onChange={(e) => setCreateContacts((arr) => arr.map((x, j) => j === i ? { ...x, full_name: e.target.value } : x))} />
+            ))}
+            <div>
+              <Label>Ảnh học sinh</Label>
+              <button
+                type="button"
+                onClick={() => createPhotoRef.current?.click()}
+                className="mt-1 w-full border-2 border-dashed border-muted-foreground/25 rounded-xl overflow-hidden hover:border-primary/40 transition-colors group"
+              >
+                {createPhotoPreview ? (
+                  <img src={createPhotoPreview} alt="" className="w-full h-32 object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-24 gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
+                    <Upload className="h-5 w-5" />
+                    <span className="text-xs">Chọn ảnh JPG, PNG, WEBP</span>
                   </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Số điện thoại <span className="text-destructive">*</span></Label>}
-                    <Input
-                      placeholder="SĐT"
-                      value={c.phone}
-                      onChange={(e) => setCreateContacts((arr) => arr.map((x, j) => j === i ? { ...x, phone: e.target.value } : x))}
-                    />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Quan hệ</Label>}
-                    <Input placeholder="Cha / Mẹ" value={c.relationship}
-                      onChange={(e) => setCreateContacts((arr) => arr.map((x, j) => j === i ? { ...x, relationship: e.target.value } : x))} />
-                  </div>
-                  <button type="button" className="pb-1 text-muted-foreground hover:text-destructive transition-colors"
-                    onClick={() => setCreateContacts((arr) => arr.filter((_, j) => j !== i))}>
-                    <X className="h-4 w-4" />
-                  </button>
+                )}
+              </button>
+              <input
+                ref={createPhotoRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) pickPhoto(f, 'create');
+                  e.target.value = '';
+                }}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={create.isPending}>
+                Tạo học sinh
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Parents dialog */}
+      <Dialog open={parentsOpen} onOpenChange={setParentsOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cập nhật phụ huynh{editing ? ` — ${editing.full_name}` : ''}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Danh sách phụ huynh (tối đa 2)</span>
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                disabled={editParents.length >= 2}
+                onClick={() =>
+                  mutateEditParents((arr) => [
+                    ...arr,
+                    { full_name: '', relationship: '', phone: '', _new: true },
+                  ])
+                }
+              >
+                <Plus className="h-3 w-3" /> Thêm phụ huynh
+              </button>
+            </div>
+            {editParents.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Chưa có phụ huynh. Nhấn "Thêm phụ huynh".
+              </p>
+            )}
+            {editParents.map((p, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+                <div>
+                  {i === 0 && (
+                    <Label className="text-xs">
+                      Họ tên <span className="text-destructive">*</span>
+                    </Label>
+                  )}
+                  <Input
+                    placeholder="Nguyễn Văn A"
+                    value={p.full_name ?? ''}
+                    onChange={(e) =>
+                      mutateEditParents((arr) =>
+                        arr.map((x, j) => (j === i ? { ...x, full_name: e.target.value } : x)),
+                      )
+                    }
+                  />
                 </div>
-              ))}
-              <div>
-                <Label>Ảnh học sinh</Label>
-                <button type="button" onClick={() => createPhotoRef.current?.click()}
-                  className="mt-1 w-full border-2 border-dashed border-muted-foreground/25 rounded-xl overflow-hidden hover:border-primary/40 transition-colors group">
-                  {createPhotoPreview
-                    ? <img src={createPhotoPreview} alt="" className="w-full h-32 object-cover" />
-                    : <div className="flex flex-col items-center justify-center h-24 gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
-                        <Upload className="h-5 w-5" />
-                        <span className="text-xs">Chọn ảnh JPG, PNG, WEBP</span>
-                      </div>
-                  }
+                <div>
+                  {i === 0 && (
+                    <Label className="text-xs">
+                      Số điện thoại <span className="text-destructive">*</span>
+                    </Label>
+                  )}
+                  <Input
+                    placeholder="SĐT"
+                    value={p.phone ?? ''}
+                    onChange={(e) =>
+                      mutateEditParents((arr) =>
+                        arr.map((x, j) => (j === i ? { ...x, phone: e.target.value } : x)),
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  {i === 0 && <Label className="text-xs">Quan hệ</Label>}
+                  <Input
+                    placeholder="Cha / Mẹ"
+                    value={p.relationship ?? ''}
+                    onChange={(e) =>
+                      mutateEditParents((arr) =>
+                        arr.map((x, j) => (j === i ? { ...x, relationship: e.target.value } : x)),
+                      )
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="pb-1 text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={() => mutateEditParents((arr) => arr.filter((_, j) => j !== i))}
+                >
+                  <X className="h-4 w-4" />
                 </button>
-                <input ref={createPhotoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) pickPhoto(f, 'create'); e.target.value = ''; }} />
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Hủy</Button>
-                <Button type="submit" disabled={create.isPending}>Tạo học sinh</Button>
-              </DialogFooter>
-            </form>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setParentsOpen(false)}>
+              Hủy
+            </Button>
+            <Button type="button" onClick={onParentsSubmit} disabled={!editParentsDirty}>
+              Lưu
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1020,16 +1515,26 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
               </TableHeader>
               <TableBody>
                 {archivedLoading && (
-                  <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Đang tải...</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                      Đang tải...
+                    </TableCell>
+                  </TableRow>
                 )}
                 {!archivedLoading && (!archivedData || archivedData.length === 0) && (
-                  <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Không có học sinh nào được lưu trữ</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                      Không có học sinh nào được lưu trữ
+                    </TableCell>
+                  </TableRow>
                 )}
                 {archivedData?.map((s) => {
-                  const sc = s.student_classes?.[0];
+                  const sc = s.enrollments?.[0];
                   return (
                     <TableRow key={s.student_id}>
-                      <TableCell className="font-mono text-sm">{s.student_id_card_number}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {s.student_id_card_number}
+                      </TableCell>
                       <TableCell className="font-medium">{s.full_name}</TableCell>
                       <TableCell>{sc?.class?.class_name ?? '—'}</TableCell>
                       {isBGH && (
@@ -1060,6 +1565,25 @@ const createForm = useForm({ resolver: zodResolver(createSchema) });
         onConfirm={onCropConfirm}
         onCancel={onCropCancel}
         aspect={1}
+      />
+
+      <ImportPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title="Xem trước nhập học sinh"
+        columns={[
+          { key: 'full_name', label: 'Họ tên' },
+          { key: 'date_of_birth', label: 'Ngày sinh' },
+          { key: 'gender', label: 'Giới tính' },
+          { key: 'grade_level', label: 'Khối' },
+          { key: 'class_name', label: 'Lớp' },
+          { key: 'parent1', label: 'PH 1' },
+          { key: 'parent2', label: 'PH 2' },
+        ]}
+        preview={importPreview}
+        loading={previewLoading}
+        confirming={confirming}
+        onConfirm={handleConfirmImport}
       />
     </>
   );

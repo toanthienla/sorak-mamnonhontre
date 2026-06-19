@@ -117,18 +117,15 @@ export async function setActive(id) {
 
   logger.info(`Academic year ${updated.name} → ACTIVE`);
 
-  // Auto-promote students from previous year when activating
-  const promotion = await promoteStudents(id);
-  logger.info(`Promoted ${promotion.promoted}, graduated ${promotion.graduated}`);
-
-  return { ...updated, promotion };
+  // Promotion is a separate explicit action (POST /:id/promote) — not auto-run on activate
+  return updated;
 }
 
 const GRADE_PROGRESSION = {
   'Nhà trẻ': 'Mầm',
-  'Mầm': 'Chồi',
-  'Chồi': 'Lá',
-  'Lá': null, // graduate
+  Mầm: 'Chồi',
+  Chồi: 'Lá',
+  Lá: null, // graduate
 };
 
 export async function promoteStudents(toYearId) {
@@ -140,71 +137,75 @@ export async function promoteStudents(toYearId) {
   });
   if (!prevYear) return { promoted: 0, graduated: 0, skipped: 0 };
 
-  const PROMOTABLE_STATUSES = ['Đang học', 'Hoàn thành chương trình'];
+  // Only students who completed the program get promoted (not still-learning ones)
+  const PROMOTABLE_STATUSES = ['Hoàn thành chương trình'];
 
-  // Collect students from previous year via StudentClass
-  const prevClasses = await prisma.studentClass.findMany({
-    where: { class: { school_year_id: prevYear.school_year_id }, left_date: null },
+  // Collect students from previous year — via enrollments with class set
+  const prevEnrollments = await prisma.studentEnrollment.findMany({
+    where: { school_year_id: prevYear.school_year_id, class_id: { not: null }, left_date: null },
     include: {
       student: { select: { student_id: true, deleted_at: true, student_status: true } },
       class: { select: { age_group: true } },
     },
   });
 
-  // Also from StudentYearEnrollment (students with no class in prev year)
-  const prevEnrollments = await prisma.studentYearEnrollment.findMany({
-    where: { school_year_id: prevYear.school_year_id },
-    include: { student: { select: { student_id: true, deleted_at: true, student_status: true } } },
-  });
-
-  // Build map: student_id → grade_level (prefer StudentClass)
-  // Only include students with promotable status (skip Thôi học, Chuyển đi, etc.)
+  // Only promote students who had a class — students without class excluded
   const studentGrades = new Map();
-  for (const sc of prevClasses) {
-    if (!sc.student.deleted_at && PROMOTABLE_STATUSES.includes(sc.student.student_status)) {
-      studentGrades.set(sc.student.student_id, sc.class.age_group ?? null);
-    }
-  }
-  for (const se of prevEnrollments) {
-    if (!se.student.deleted_at && !studentGrades.has(se.student_id) && PROMOTABLE_STATUSES.includes(se.student.student_status)) {
-      studentGrades.set(se.student_id, se.grade_level ?? null);
+  for (const e of prevEnrollments) {
+    if (!e.student.deleted_at && PROMOTABLE_STATUSES.includes(e.student.student_status)) {
+      studentGrades.set(e.student.student_id, e.class.age_group ?? null);
     }
   }
 
   // Check which students already enrolled in toYear
-  const alreadyEnrolled = await prisma.studentYearEnrollment.findMany({
+  const alreadyEnrolled = await prisma.studentEnrollment.findMany({
     where: { school_year_id: toYearId },
     select: { student_id: true },
   });
   const alreadySet = new Set(alreadyEnrolled.map((e) => e.student_id));
 
-  let promoted = 0, graduated = 0, skipped = 0;
+  let promoted = 0,
+    graduated = 0,
+    skipped = 0;
 
-  for (const [studentId, gradeLevel] of studentGrades) {
-    if (alreadySet.has(studentId)) { skipped++; continue; }
+  // All-or-nothing: any failure rolls back EVERY student promoted in this run
+  await prisma.$transaction(async (tx) => {
+    for (const [studentId, gradeLevel] of studentGrades) {
+      if (alreadySet.has(studentId)) {
+        skipped++;
+        continue;
+      }
 
-    const nextGrade = GRADE_PROGRESSION[gradeLevel];
+      const nextGrade = GRADE_PROGRESSION[gradeLevel];
 
-    if (gradeLevel === 'Lá' || nextGrade === undefined) {
-      // Graduate: skip — teacher will manually set "Hoàn thành chương trình", account stays active
-      graduated++;
-    } else {
-      // Close old class record
-      await prisma.studentClass.updateMany({
-        where: { student_id: studentId, class: { school_year_id: prevYear.school_year_id }, left_date: null },
-        data: { left_date: new Date() },
-      });
-      // Promote to next grade, reset status to Đang học
-      await prisma.studentYearEnrollment.create({
-        data: { student_id: studentId, school_year_id: toYearId, grade_level: nextGrade },
-      });
-      await prisma.student.update({
-        where: { student_id: studentId },
-        data: { grade_level: nextGrade, student_status: 'Đang học' },
-      });
-      promoted++;
+      if (gradeLevel === 'Lá' || nextGrade === undefined) {
+        // Graduate: skip — teacher will manually set "Hoàn thành chương trình", account stays active
+        graduated++;
+      } else {
+        await tx.studentEnrollment.updateMany({
+          where: {
+            student_id: studentId,
+            school_year_id: prevYear.school_year_id,
+            left_date: null,
+          },
+          data: { left_date: new Date() },
+        });
+        await tx.studentEnrollment.create({
+          data: {
+            student_id: studentId,
+            school_year_id: toYearId,
+            class_id: null,
+            grade_level: nextGrade,
+          },
+        });
+        await tx.student.update({
+          where: { student_id: studentId },
+          data: { grade_level: nextGrade, student_status: 'Đang học' },
+        });
+        promoted++;
+      }
     }
-  }
+  });
 
   // Auto-inactive: students absent from BOTH prevYear and toYear (2 consecutive years missing)
   let inactivated = 0;
@@ -214,28 +215,21 @@ export async function promoteStudents(toYearId) {
   });
 
   if (prevPrevYear) {
-    // Collect IDs enrolled in prevPrevYear (via StudentClass OR StudentYearEnrollment)
-    const ppClasses = await prisma.studentClass.findMany({
-      where: { class: { school_year_id: prevPrevYear.school_year_id } },
-      select: { student_id: true },
-    });
-    const ppEnrollments = await prisma.studentYearEnrollment.findMany({
+    // Collect IDs enrolled in prevPrevYear (single table now)
+    const ppRows = await prisma.studentEnrollment.findMany({
       where: { school_year_id: prevPrevYear.school_year_id },
       select: { student_id: true },
     });
-    const ppIds = new Set([...ppClasses, ...ppEnrollments].map((r) => r.student_id));
+    const ppIds = new Set(ppRows.map((r) => r.student_id));
 
-    // IDs enrolled in prevYear
-    const prevClassIds = new Set(prevClasses.map((sc) => sc.student.student_id));
-    const prevEnrollIds = new Set(prevEnrollments.map((e) => e.student_id));
+    // IDs with class in prevYear
+    const prevClassIds = new Set(prevEnrollments.map((e) => e.student.student_id));
 
     // IDs enrolled in toYear
     const toYearIds = new Set(alreadyEnrolled.map((e) => e.student_id));
 
-    // Absent from prevYear AND toYear → 2 years gone
-    const toDeactivate = [...ppIds].filter(
-      (id) => !prevClassIds.has(id) && !prevEnrollIds.has(id) && !toYearIds.has(id),
-    );
+    // Absent from prevYear classes AND toYear → 2 years gone
+    const toDeactivate = [...ppIds].filter((id) => !prevClassIds.has(id) && !toYearIds.has(id));
 
     if (toDeactivate.length > 0) {
       const result = await prisma.account.updateMany({
@@ -250,7 +244,9 @@ export async function promoteStudents(toYearId) {
     }
   }
 
-  logger.info(`Promoted ${promoted} students to ${toYear.name}, graduated ${graduated} Lá students, inactivated ${inactivated}`);
+  logger.info(
+    `Promoted ${promoted} students to ${toYear.name}, graduated ${graduated} Lá students, inactivated ${inactivated}`,
+  );
   return { promoted, graduated, skipped, inactivated };
 }
 
@@ -273,8 +269,7 @@ export async function softDelete(id) {
   const classCount = await prisma.class.count({
     where: { school_year_id: id, deleted_at: null },
   });
-  if (classCount > 0)
-    throw BadRequest(`Không thể xóa — còn ${classCount} lớp liên kết`);
+  if (classCount > 0) throw BadRequest(`Không thể xóa — còn ${classCount} lớp liên kết`);
 
   return prisma.schoolYear.update({
     where: { school_year_id: id },
