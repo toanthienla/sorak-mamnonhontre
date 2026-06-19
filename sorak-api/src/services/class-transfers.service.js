@@ -274,3 +274,44 @@ export async function updateStatus(id, dto, user) {
 }
 
 // ─── Cron: apply approved requests due today (BR-071) ───────────────────────
+export async function applyDueTransfers() {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  // Expire stale Pending requests whose effective date has passed
+  const expired = await prisma.classTransferRequest.updateMany({
+    where: { status: 'Pending', effective_date: { lt: startOfToday } },
+    data: { status: 'Expired', review_note: 'Quá hạn hiệu lực — hệ thống tự động đóng' },
+  });
+  if (expired.count > 0) logger.info(`Expired ${expired.count} stale class transfer request(s)`);
+
+  const due = await prisma.classTransferRequest.findMany({
+    where: { status: 'Approved', applied_at: null, effective_date: { lte: new Date() } },
+    include: { student: { select: { student_status: true } } },
+  });
+  for (const request of due) {
+    try {
+      // Student no longer active (e.g. transferred out) → request can never apply
+      if (request.student.student_status !== 'Đang học') {
+        await prisma.classTransferRequest.update({
+          where: { request_id: request.request_id },
+          data: {
+            status: 'Expired',
+            review_note: 'Học sinh không còn trạng thái Đang học — hệ thống tự động đóng',
+          },
+        });
+        logger.info(
+          `Expired class transfer #${request.request_id} — student ${request.student_id} not active`,
+        );
+        continue;
+      }
+      await prisma.$transaction(async (tx) => applyRequest(tx, request));
+      logger.info(
+        `Applied class transfer #${request.request_id} (student ${request.student_id} → class ${request.to_class_id})`,
+      );
+    } catch (err) {
+      logger.error(`Failed to apply class transfer #${request.request_id}: ${err.message}`);
+    }
+  }
+  return due.length;
+}
