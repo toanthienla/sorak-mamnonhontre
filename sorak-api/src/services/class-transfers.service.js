@@ -175,3 +175,36 @@ export async function findAll(query, user) {
 }
 
 // ─── Details (UC-48) ─────────────────────────────────────────────────────────
+export async function findOne(id, user) {
+  const request = await prisma.classTransferRequest.findUnique({
+    where: { request_id: id },
+    include: REQUEST_INCLUDE,
+  });
+  if (!request) throw NotFound('Yêu cầu chuyển lớp không tồn tại');
+
+  if (user.role === 'TEACHER') {
+    const myClassIds = await getTeacherClassIds(user.sub);
+    const related =
+      myClassIds.includes(request.from_class_id) || myClassIds.includes(request.to_class_id);
+    if (!related) throw Forbidden('Không có quyền xem yêu cầu này');
+  }
+  return request;
+}
+
+// ─── Apply one approved request: move student to target class ────────────────
+async function applyRequest(tx, request) {
+  await tx.studentEnrollment.updateMany({
+    where: {
+      student_id: request.student_id,
+      school_year_id: request.school_year_id,
+      left_date: null,
+    },
+    data: { class_id: request.to_class_id },
+  });
+  await tx.classTransferRequest.update({
+    where: { request_id: request.request_id },
+    data: { applied_at: new Date() },
+  });
+}
+
+// ─── Update status (UC-49) ───────────────────────────────────────────────────

@@ -15,5 +15,6 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 router.post('/', validate(createClassTransferSchema), asyncHandler(ctrl.create));
 router.get('/', validate(queryClassTransferSchema, 'query'), asyncHandler(ctrl.findAll));
+router.get('/:id', asyncHandler(ctrl.findOne));
 
 export default router;
