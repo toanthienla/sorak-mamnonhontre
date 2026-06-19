@@ -177,3 +177,45 @@ export async function update(id, dto, user) {
 }
 
 // ─── Cancel status (UC-54) — restores student + account (BR-085) ────────────
+export async function cancel(id, dto, user) {
+  const record = await prisma.outgoingTransfer.findFirst({
+    where: { transfer_id: id, deleted_at: null },
+    include: { student: { select: { account_id: true } } },
+  });
+  if (!record) throw NotFound('Hồ sơ chuyển đi không tồn tại');
+  if (record.status === 'Cancelled') throw Conflict('Hồ sơ đã được hủy trước đó');
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.outgoingTransfer.update({
+      where: { transfer_id: id },
+      data: {
+        status: 'Cancelled',
+        cancel_reason: dto.cancel_reason ?? null,
+        updated_by: user.sub,
+      },
+      include: TRANSFER_INCLUDE,
+    });
+
+    // BR-085: restore learning status + reactivate account
+    await tx.student.update({
+      where: { student_id: record.student_id },
+      data: { student_status: ACTIVE_STATUS },
+    });
+    await tx.studentEnrollment.updateMany({
+      where: { student_id: record.student_id, left_date: null },
+      data: { student_status: ACTIVE_STATUS },
+    });
+    if (record.student.account_id) {
+      await tx.account.update({
+        where: { account_id: record.student.account_id },
+        data: { is_active: true },
+      });
+    }
+    return updated;
+  });
+
+  logger.info(`Outgoing transfer #${id} cancelled — student ${record.student_id} restored`);
+  return result;
+}
+
+// ─── Soft delete — wrong entry; also restores student if still Recorded ─────
