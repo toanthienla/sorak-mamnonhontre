@@ -1,0 +1,18 @@
+{
+  "name": "sorak-mamnonhontre",
+  "private": true,
+  "description": "Sorak monorepo — sorak-api + sorak-web. Root holds shared format/lint tooling.",
+  "scripts": {
+    "prepare": "husky",
+    "format": "prettier --write \"sorak-api/**/*.{js,jsx,json,css,md}\" \"sorak-web/**/*.{js,jsx,ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"sorak-api/**/*.{js,jsx,json,css,md}\" \"sorak-web/**/*.{js,jsx,ts,tsx,json,css,md}\""
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.8.4"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,md}": "prettier --write"
+  }
+}

@@ -1,0 +1,24 @@
+---
+description: Sorak project coding rules — applies to the whole repo
+alwaysApply: true
+globs:
+  - "**/*"
+---
+
+# Sorak rules
+
+**The full rulebook is [`AGENTS.md`](../../AGENTS.md) at the repo root. Read and follow it.**
+
+Summary of the non-negotiables:
+
+- Backend layers are strict: **Route → Controller → Service → Prisma**. No business logic in controllers or routes — it belongs in the service.
+- Validate all input with **Joi** in `validators/` (`<verb><Noun>Schema`). Controllers stay thin.
+- **Named exports** for services/controllers; only routers use `export default`.
+- **Soft delete only**: set `deleted_at`, always filter `deleted_at: null`. Use `findFirst` for soft-delete-aware queries.
+- Responses: `res.success(data)` / `res.paginated(result)`. Errors: `HttpError` factories (`NotFound`, `BadRequest`, `Conflict`, ...).
+- **Vietnamese** for user-facing text; **English** for code, comments, commits, logs.
+- Frontend: feature folders, TanStack Query via `@/shared/hooks/use-crud`, react-hook-form + zod, shadcn `@/components/ui/*`, sonner toasts. Use shared components, not hand-rolled ones.
+- **Frontend layout/design: follow `sorak-web/UI_PATTERNS.md`** — copy its standard page skeleton, use only theme tokens (no hex/arbitrary values), reuse the shared component catalog. Every page must look identical in structure.
+- Prisma fields are `snake_case`. No nested transactions. Smallest `select`/`include`.
+- **Match the nearest existing feature.** Do not add new libraries, folders, or response shapes without team agreement.
+- Run Prettier before commit; the pre-commit hook enforces it.
