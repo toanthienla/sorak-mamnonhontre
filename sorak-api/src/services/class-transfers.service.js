@@ -135,3 +135,43 @@ export async function create(dto, user) {
 }
 
 // ─── List (UC-47) ────────────────────────────────────────────────────────────
+export async function findAll(query, user) {
+  const { page, pageSize, search } = query;
+  const where = {};
+
+  if (query.status) where.status = query.status;
+  if (query.school_year_id) where.school_year_id = Number(query.school_year_id);
+  if (query.student_id) where.student_id = Number(query.student_id);
+  if (query.class_id) {
+    where.OR = [{ from_class_id: Number(query.class_id) }, { to_class_id: Number(query.class_id) }];
+  }
+
+  // Teachers only see requests they created
+  if (user.role === 'TEACHER') {
+    where.requested_by = user.sub;
+  }
+
+  if (search) {
+    const ids = await searchIds(
+      'students',
+      'student_id',
+      ['full_name', 'student_id_card_number'],
+      search,
+    );
+    where.student_id = ids ? { in: ids } : where.student_id;
+  }
+
+  const [data, total] = await prisma.$transaction([
+    prisma.classTransferRequest.findMany({
+      where,
+      include: REQUEST_INCLUDE,
+      orderBy: { request_id: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.classTransferRequest.count({ where }),
+  ]);
+  return paginate(data, total, page, pageSize);
+}
+
+// ─── Details (UC-48) ─────────────────────────────────────────────────────────
