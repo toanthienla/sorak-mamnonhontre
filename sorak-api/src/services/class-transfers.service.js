@@ -208,3 +208,69 @@ async function applyRequest(tx, request) {
 }
 
 // ─── Update status (UC-49) ───────────────────────────────────────────────────
+export async function updateStatus(id, dto, user) {
+  const { action, note } = dto; // approve | reject | cancel | revert
+  const request = await prisma.classTransferRequest.findUnique({ where: { request_id: id } });
+  if (!request) throw NotFound('Yêu cầu chuyển lớp không tồn tại');
+
+  // Revert: Approved → Pending, only before the transfer has been applied
+  if (action === 'revert') {
+    if (user.role !== 'PRINCIPAL') throw Forbidden('Chỉ Ban Giám Hiệu được hoàn tác duyệt');
+    if (request.status !== 'Approved') throw Conflict('Chỉ hoàn tác được yêu cầu đã duyệt');
+    if (request.applied_at) throw Conflict('Yêu cầu đã được áp dụng — không thể hoàn tác');
+    const reverted = await prisma.classTransferRequest.update({
+      where: { request_id: id },
+      data: { status: 'Pending', reviewed_by: null, review_note: null, reviewed_at: null },
+      include: REQUEST_INCLUDE,
+    });
+    logger.info(`Class transfer request #${id} reverted to Pending by account ${user.sub}`);
+    return reverted;
+  }
+
+  // EF-49-01: already processed
+  if (request.status !== 'Pending') throw Conflict('Yêu cầu đã được xử lý');
+
+  // BR-068: only PRINCIPAL approves/rejects
+  if ((action === 'approve' || action === 'reject') && user.role !== 'PRINCIPAL') {
+    throw Forbidden('Chỉ Ban Giám Hiệu được duyệt hoặc từ chối yêu cầu');
+  }
+  // Late approve blocked: effective date already passed (before today) → request must be re-created
+  if (action === 'approve') {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (new Date(request.effective_date) < startOfToday) {
+      throw Conflict('Ngày hiệu lực đã qua — yêu cầu cần được tạo lại với ngày mới');
+    }
+  }
+  // Cancel: requesting teacher or PRINCIPAL
+  if (action === 'cancel' && user.role !== 'PRINCIPAL' && request.requested_by !== user.sub) {
+    throw Forbidden('Chỉ người tạo yêu cầu được hủy yêu cầu này');
+  }
+
+  const STATUS_MAP = { approve: 'Approved', reject: 'Rejected', cancel: 'Cancelled' };
+  const newStatus = STATUS_MAP[action];
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.classTransferRequest.update({
+      where: { request_id: id },
+      data: {
+        status: newStatus,
+        reviewed_by: user.sub,
+        review_note: note ?? null,
+        reviewed_at: new Date(),
+      },
+      include: REQUEST_INCLUDE,
+    });
+
+    // BR-069/071: if approved and effective date already reached → apply now
+    if (newStatus === 'Approved' && new Date(updated.effective_date) <= new Date()) {
+      await applyRequest(tx, updated);
+    }
+    return updated;
+  });
+
+  logger.info(`Class transfer request #${id} → ${newStatus} by account ${user.sub}`);
+  return result;
+}
+
+// ─── Cron: apply approved requests due today (BR-071) ───────────────────────

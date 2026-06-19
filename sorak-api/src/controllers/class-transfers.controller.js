@@ -11,3 +11,7 @@ export async function findAll(req, res) {
 export async function findOne(req, res) {
   res.success(await svc.findOne(Number(req.params.id), req.user));
 }
+
+export async function updateStatus(req, res) {
+  res.success(await svc.updateStatus(Number(req.params.id), req.body, req.user));
+}
