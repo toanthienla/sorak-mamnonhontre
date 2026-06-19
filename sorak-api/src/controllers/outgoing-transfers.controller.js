@@ -23,3 +23,16 @@ export async function cancel(req, res) {
 export async function softDelete(req, res) {
   res.success(await svc.softDelete(Number(req.params.id), req.user));
 }
+
+export async function exportExcel(req, res) {
+  const buf = await svc.exportExcel(req.query);
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="outgoing_transfers_${Date.now()}.xlsx"`,
+  );
+  res.send(Buffer.from(buf));
+}

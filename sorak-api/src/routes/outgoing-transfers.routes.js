@@ -17,6 +17,7 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 // View + export: PRINCIPAL + TEACHER
 
 router.get('/', validate(querySchoolTransferSchema, 'query'), asyncHandler(ctrl.findAll));
+router.get('/export/excel', asyncHandler(ctrl.exportExcel));
 router.get('/:id', asyncHandler(ctrl.findOne));
 
 // Mutations: PRINCIPAL only (UC-50, UC-53, UC-54)
