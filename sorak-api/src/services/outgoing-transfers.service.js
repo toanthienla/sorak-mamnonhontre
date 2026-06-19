@@ -219,3 +219,36 @@ export async function cancel(id, dto, user) {
 }
 
 // ─── Soft delete — wrong entry; also restores student if still Recorded ─────
+export async function softDelete(id, user) {
+  const record = await prisma.outgoingTransfer.findFirst({
+    where: { transfer_id: id, deleted_at: null },
+    include: { student: { select: { account_id: true } } },
+  });
+  if (!record) throw NotFound('Hồ sơ chuyển đi không tồn tại');
+
+  return prisma.$transaction(async (tx) => {
+    // Deleting an active Recorded entry = the transfer never happened → restore student
+    if (record.status === 'Recorded') {
+      await tx.student.update({
+        where: { student_id: record.student_id },
+        data: { student_status: ACTIVE_STATUS },
+      });
+      await tx.studentEnrollment.updateMany({
+        where: { student_id: record.student_id, left_date: null },
+        data: { student_status: ACTIVE_STATUS },
+      });
+      if (record.student.account_id) {
+        await tx.account.update({
+          where: { account_id: record.student.account_id },
+          data: { is_active: true },
+        });
+      }
+    }
+    return tx.outgoingTransfer.update({
+      where: { transfer_id: id },
+      data: { deleted_at: new Date(), updated_by: user.sub },
+    });
+  });
+}
+
+// ─── Export Excel (UC-55) — Cancelled excluded (BR-086) ─────────────────────

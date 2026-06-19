@@ -19,3 +19,7 @@ export async function update(req, res) {
 export async function cancel(req, res) {
   res.success(await svc.cancel(Number(req.params.id), req.body, req.user));
 }
+
+export async function softDelete(req, res) {
+  res.success(await svc.softDelete(Number(req.params.id), req.user));
+}
