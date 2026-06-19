@@ -1,78 +1,85 @@
-import { Router } from "express";
-import { asyncHandler } from "../utils/async-handler.js";
-import { validate } from "../middlewares/validate.js";
-import { authMiddleware } from "../middlewares/auth.js";
-import { requireRoles } from "../middlewares/roles.js";
-import { uploadXlsx, uploadImage } from "../middlewares/upload.js";
+import { Router } from 'express';
+import { asyncHandler } from '../utils/async-handler.js';
+import { validate } from '../middlewares/validate.js';
+import { authMiddleware } from '../middlewares/auth.js';
+import { requireRoles } from '../middlewares/roles.js';
+import { uploadXlsx, uploadPhoto } from '../middlewares/upload.js';
 import {
   createStudentSchema,
   updateStudentSchema,
   queryStudentSchema,
   parentInputSchema,
-} from "../validators/students.schema.js";
-import * as ctrl from "../controllers/students.controller.js";
+  batchParentsSchema,
+} from '../validators/students.schema.js';
+import * as ctrl from '../controllers/students.controller.js';
 
 const router = Router();
 router.use(authMiddleware);
 
 router.post(
-  "/",
-  requireRoles("BGH"),
+  '/',
+  requireRoles('PRINCIPAL', 'TEACHER'),
   validate(createStudentSchema),
   asyncHandler(ctrl.create),
 );
 router.get(
-  "/",
-  requireRoles("BGH", "GV"),
-  validate(queryStudentSchema, "query"),
+  '/',
+  requireRoles('PRINCIPAL', 'TEACHER'),
+  validate(queryStudentSchema, 'query'),
   asyncHandler(ctrl.findAll),
 );
-router.get(
-  "/archived",
-  requireRoles("BGH", "GV"),
-  asyncHandler(ctrl.findArchived),
-);
-router.get(
-  "/export/excel",
-  requireRoles("BGH", "GV"),
-  asyncHandler(ctrl.exportExcel),
-);
-router.get("/:id", requireRoles("BGH", "GV"), asyncHandler(ctrl.findOne));
+router.get('/archived', requireRoles('PRINCIPAL', 'TEACHER'), asyncHandler(ctrl.findArchived));
+router.get('/export/excel', requireRoles('PRINCIPAL', 'TEACHER'), asyncHandler(ctrl.exportExcel));
+router.get('/:id', requireRoles('PRINCIPAL', 'TEACHER'), asyncHandler(ctrl.findOne));
 router.patch(
-  "/:id",
-  requireRoles("BGH"),
+  '/:id',
+  requireRoles('PRINCIPAL', 'TEACHER'),
   validate(updateStudentSchema),
   asyncHandler(ctrl.update),
 );
-router.patch("/:id/restore", requireRoles("BGH"), asyncHandler(ctrl.restore));
-router.delete("/:id", requireRoles("BGH"), asyncHandler(ctrl.softDelete));
+router.patch('/:id/restore', requireRoles('PRINCIPAL'), asyncHandler(ctrl.restore));
+router.delete('/:id', requireRoles('PRINCIPAL'), asyncHandler(ctrl.softDelete));
 router.post(
-  "/:id/parents",
-  requireRoles("BGH"),
+  '/:id/parents',
+  requireRoles('PRINCIPAL', 'TEACHER'),
   validate(parentInputSchema),
   asyncHandler(ctrl.addParent),
 );
 router.patch(
-  "/parents/:parentId",
-  requireRoles("BGH"),
+  '/:id/parents',
+  requireRoles('PRINCIPAL', 'TEACHER'),
+  validate(batchParentsSchema),
+  asyncHandler(ctrl.batchUpdateParents),
+);
+router.patch(
+  '/parents/:parentId',
+  requireRoles('PRINCIPAL', 'TEACHER'),
+  validate(parentInputSchema),
   asyncHandler(ctrl.updateParent),
 );
 router.post(
-  "/:id/reset-password",
-  requireRoles("BGH", "GV"),
+  '/:id/reset-password',
+  requireRoles('PRINCIPAL', 'TEACHER'),
   asyncHandler(ctrl.resetPassword),
 );
-router.patch("/:id/active", requireRoles("BGH"), asyncHandler(ctrl.setActive));
+router.patch('/:id/active', requireRoles('PRINCIPAL'), asyncHandler(ctrl.setActive));
+router.get('/import/template', requireRoles('PRINCIPAL'), asyncHandler(ctrl.importTemplate));
 router.post(
-  "/import",
-  requireRoles("BGH"),
-  uploadXlsx.single("file"),
+  '/import/preview',
+  requireRoles('PRINCIPAL'),
+  uploadXlsx.single('file'),
+  asyncHandler(ctrl.previewImport),
+);
+router.post(
+  '/import',
+  requireRoles('PRINCIPAL'),
+  uploadXlsx.single('file'),
   asyncHandler(ctrl.importExcel),
 );
 router.post(
-  "/:id/photo",
-  requireRoles("BGH", "GV"),
-  uploadImage.single("photo"),
+  '/:id/photo',
+  requireRoles('PRINCIPAL', 'TEACHER'),
+  uploadPhoto,
   asyncHandler(ctrl.uploadPhoto),
 );
 
