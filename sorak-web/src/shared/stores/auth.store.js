@@ -10,7 +10,7 @@ export const useAuthStore = create(
     }),
     {
       name: 'sorak-auth',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage), // persist across tabs + browser restart
       partialize: (state) => ({ user: state.user }),
     },
   ),

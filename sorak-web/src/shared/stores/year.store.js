@@ -9,7 +9,7 @@ export const useYearStore = create(
     }),
     {
       name: 'sorak-year',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     },
   ),
 );
