@@ -1,0 +1,15 @@
+# Sorak — Cursor rules (legacy file; see .cursor/rules/sorak.mdc and AGENTS.md)
+
+Follow AGENTS.md at the repo root — it is the single source of truth.
+
+Non-negotiables:
+- Backend: Route -> Controller -> Service -> Prisma. No logic in controllers/routes; logic lives in services.
+- Validate input with Joi in validators/ (<verb><Noun>Schema). Controllers stay thin.
+- Named exports for services/controllers; routers use export default.
+- Soft delete only (deleted_at); always filter deleted_at: null; use findFirst, not findUnique, for soft-delete queries.
+- Responses via res.success(data) / res.paginated(result). Errors via HttpError factories.
+- Vietnamese for user-facing text; English for code, comments, commits, logs.
+- Frontend: feature folders, TanStack Query via @/shared/hooks/use-crud, react-hook-form + zod, shadcn @/components/ui/*, sonner toasts.
+- Prisma fields snake_case; no nested transactions; smallest select/include.
+- Match the nearest existing feature. Do not add new libraries, folders, or response shapes.
+- Run Prettier before commit.
