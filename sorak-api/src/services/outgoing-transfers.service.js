@@ -140,3 +140,13 @@ export async function findAll(query, user) {
 }
 
 // ─── Details (UC-52) ─────────────────────────────────────────────────────────
+export async function findOne(id) {
+  const record = await prisma.outgoingTransfer.findFirst({
+    where: { transfer_id: id, deleted_at: null },
+    include: TRANSFER_INCLUDE,
+  });
+  if (!record) throw NotFound('Hồ sơ chuyển đi không tồn tại');
+  return record;
+}
+
+// ─── Update info (UC-53) — correction only, Recorded records only ────────────
