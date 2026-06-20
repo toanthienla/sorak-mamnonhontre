@@ -21,6 +21,7 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 // Static routes BEFORE /:id
 
 router.get('/', validate(queryHealthSchema, 'query'), asyncHandler(ctrl.findAll));
+router.get('/history', validate(historyQuerySchema, 'query'), asyncHandler(ctrl.history));
 router.post('/', validate(createHealthSchema), asyncHandler(ctrl.create));
 router.get('/:id', asyncHandler(ctrl.findOne));
 

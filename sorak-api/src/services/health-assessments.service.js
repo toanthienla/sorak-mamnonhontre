@@ -222,3 +222,41 @@ export async function findOne(id, user) {
 }
 
 // ─── Student history within a year (UC-69/70/71/72) ─────────────────────────
+export async function history(query, user) {
+  const studentId = Number(query.student_id);
+  const student = await prisma.student.findFirst({
+    where: { student_id: studentId, deleted_at: null },
+    select: {
+      student_id: true,
+      full_name: true,
+      gender: true,
+      date_of_birth: true,
+      student_status: true,
+    },
+  });
+  if (!student) throw NotFound('Học sinh không tồn tại');
+
+  const where = { student_id: studentId };
+  if (query.school_year_id) where.school_year_id = Number(query.school_year_id);
+
+  const records = await prisma.healthAssessment.findMany({
+    where,
+    include: ASSESSMENT_INCLUDE,
+    orderBy: { assessment_date: 'asc' },
+  });
+
+  if (user.role === 'TEACHER') {
+    const myClassIds = await getTeacherClassIds(user.sub);
+    const allowed = records.some((r) => r.class_id && myClassIds.includes(r.class_id));
+    // Allow if any record is in teacher's class OR student currently enrolled in one
+    if (!allowed) {
+      const enrolled = await prisma.studentEnrollment.findFirst({
+        where: { student_id: studentId, left_date: null, class_id: { in: myClassIds } },
+      });
+      if (!enrolled) throw Forbidden('Không có quyền xem học sinh này');
+    }
+  }
+  return { student, records };
+}
+
+// WHO reference curves for charts
