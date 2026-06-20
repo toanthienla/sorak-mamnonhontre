@@ -260,3 +260,12 @@ export async function history(query, user) {
 }
 
 // WHO reference curves for charts
+export function curves(query) {
+  const indicator = query.indicator; // height | weight | bmi
+  const gender = query.gender; // Nam | Nữ
+  if (!['height', 'weight', 'bmi'].includes(indicator)) throw BadRequest('indicator không hợp lệ');
+  if (!['Nam', 'Nữ'].includes(gender)) throw BadRequest('gender không hợp lệ');
+  return referenceCurves(indicator, gender);
+}
+
+// ─── Update (UC-65) ──────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 router.get('/', validate(queryHealthSchema, 'query'), asyncHandler(ctrl.findAll));
 router.get('/history', validate(historyQuerySchema, 'query'), asyncHandler(ctrl.history));
+router.get('/who-curves', validate(curvesQuerySchema, 'query'), asyncHandler(ctrl.curves));
 router.post('/', validate(createHealthSchema), asyncHandler(ctrl.create));
 router.get('/:id', asyncHandler(ctrl.findOne));
 

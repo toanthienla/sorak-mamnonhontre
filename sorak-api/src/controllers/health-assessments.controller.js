@@ -15,3 +15,7 @@ export async function findOne(req, res) {
 export async function history(req, res) {
   res.success(await svc.history(req.query, req.user));
 }
+
+export async function curves(req, res) {
+  res.success(svc.curves(req.query));
+}
