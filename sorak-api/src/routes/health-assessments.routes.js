@@ -22,5 +22,6 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 router.get('/', validate(queryHealthSchema, 'query'), asyncHandler(ctrl.findAll));
 router.post('/', validate(createHealthSchema), asyncHandler(ctrl.create));
+router.get('/:id', asyncHandler(ctrl.findOne));
 
 export default router;

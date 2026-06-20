@@ -206,3 +206,19 @@ export async function findAll(query, user) {
 }
 
 // ─── Details (UC-64) ─────────────────────────────────────────────────────────
+export async function findOne(id, user) {
+  const record = await prisma.healthAssessment.findUnique({
+    where: { assessment_id: id },
+    include: ASSESSMENT_INCLUDE,
+  });
+  if (!record) throw NotFound('Bản ghi đánh giá không tồn tại');
+  if (user.role === 'TEACHER') {
+    const myClassIds = await getTeacherClassIds(user.sub);
+    if (!record.class_id || !myClassIds.includes(record.class_id)) {
+      throw Forbidden('Không có quyền xem bản ghi này');
+    }
+  }
+  return record;
+}
+
+// ─── Student history within a year (UC-69/70/71/72) ─────────────────────────
