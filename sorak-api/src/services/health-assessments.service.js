@@ -137,3 +137,72 @@ export async function create(dto, user) {
 }
 
 // ─── List (UC-63) — latest per student by default (BR-127) ───────────────────
+export async function findAll(query, user) {
+  const { page, pageSize, search } = query;
+  const where = {};
+
+  if (query.school_year_id) where.school_year_id = Number(query.school_year_id);
+  if (query.class_id) where.class_id = Number(query.class_id);
+  if (query.student_id) where.student_id = Number(query.student_id);
+  if (query.bmi_status) where.bmi_status = query.bmi_status;
+  if (query.date_from || query.date_to) {
+    where.assessment_date = {
+      ...(query.date_from ? { gte: new Date(query.date_from) } : {}),
+      ...(query.date_to ? { lte: new Date(query.date_to) } : {}),
+    };
+  }
+
+  // Teacher: restrict to assigned classes
+  if (user.role === 'TEACHER') {
+    const myClassIds = await getTeacherClassIds(user.sub);
+    where.class_id =
+      query.class_id && myClassIds.includes(Number(query.class_id))
+        ? Number(query.class_id)
+        : { in: myClassIds };
+  }
+
+  if (search) {
+    const ids = await searchIds(
+      'students',
+      'student_id',
+      ['full_name', 'student_id_card_number'],
+      search,
+    );
+    if (ids) where.student_id = { in: ids };
+  }
+
+  // BR-127: latest record per student (default mode)
+  if (query.latest !== 'false') {
+    const all = await prisma.healthAssessment.findMany({
+      where,
+      include: ASSESSMENT_INCLUDE,
+      orderBy: [{ student_id: 'asc' }, { assessment_date: 'desc' }],
+    });
+    const latest = [];
+    const seen = new Set();
+    for (const r of all) {
+      if (!seen.has(r.student_id)) {
+        seen.add(r.student_id);
+        latest.push(r);
+      }
+    }
+    latest.sort(byGrade); // grade order Nhà trẻ→Mầm→Chồi→Lá
+    const total = latest.length;
+    const start = (page - 1) * pageSize;
+    return paginate(latest.slice(start, start + pageSize), total, page, pageSize);
+  }
+
+  const [data, total] = await prisma.$transaction([
+    prisma.healthAssessment.findMany({
+      where,
+      include: ASSESSMENT_INCLUDE,
+      orderBy: { assessment_date: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.healthAssessment.count({ where }),
+  ]);
+  return paginate(data, total, page, pageSize);
+}
+
+// ─── Details (UC-64) ─────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 // Static routes BEFORE /:id
 
+router.get('/', validate(queryHealthSchema, 'query'), asyncHandler(ctrl.findAll));
 router.post('/', validate(createHealthSchema), asyncHandler(ctrl.create));
 
 export default router;
