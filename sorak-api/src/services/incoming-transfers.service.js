@@ -209,3 +209,43 @@ export async function softDelete(id, user) {
 }
 
 // ─── Export Excel (UC-61) — Cancelled excluded from official reports ─────────
+export async function exportExcel(filter) {
+  const where = { deleted_at: null, status: 'Recorded' };
+  if (filter.school_year_id) where.school_year_id = Number(filter.school_year_id);
+  if (filter.class_id) where.class_id = Number(filter.class_id);
+  if (filter.student_id) where.student_id = Number(filter.student_id);
+
+  const records = await prisma.incomingTransfer.findMany({
+    where,
+    include: TRANSFER_INCLUDE,
+    orderBy: { transfer_date: 'desc' },
+  });
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Chuyển đến');
+  ws.columns = [
+    { header: 'Mã thẻ HS', key: 'card', width: 14 },
+    { header: 'Họ tên', key: 'name', width: 25 },
+    { header: 'Lớp', key: 'class', width: 12 },
+    { header: 'Năm học', key: 'year', width: 12 },
+    { header: 'Trường chuyển từ', key: 'prev', width: 30 },
+    { header: 'Ngày chuyển', key: 'date', width: 13 },
+    { header: 'Lý do', key: 'reason', width: 30 },
+    { header: 'Ghi chú', key: 'note', width: 30 },
+  ];
+  ws.getRow(1).font = { bold: true };
+
+  for (const r of records) {
+    ws.addRow({
+      card: r.student.student_id_card_number,
+      name: r.student.full_name,
+      class: r.class?.class_name ?? '',
+      year: r.school_year.name,
+      prev: r.previous_school,
+      date: r.transfer_date.toISOString().slice(0, 10),
+      reason: r.reason ?? '',
+      note: r.note ?? '',
+    });
+  }
+  return wb.xlsx.writeBuffer();
+}
