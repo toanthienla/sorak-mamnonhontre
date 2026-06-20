@@ -1,0 +1,44 @@
+import { Router } from 'express';
+import { asyncHandler } from '../utils/async-handler.js';
+import { validate } from '../middlewares/validate.js';
+import { authMiddleware } from '../middlewares/auth.js';
+import { requireRoles } from '../middlewares/roles.js';
+import {
+  createIncomingSchema,
+  updateIncomingSchema,
+  cancelTransferSchema,
+  querySchoolTransferSchema,
+} from '../validators/school-transfers.schema.js';
+import * as ctrl from '../controllers/incoming-transfers.controller.js';
+
+const router = Router();
+router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
+
+// View + export: PRINCIPAL + TEACHER
+
+router.get('/', validate(querySchoolTransferSchema, 'query'), asyncHandler(ctrl.findAll));
+router.get('/export/excel', asyncHandler(ctrl.exportExcel));
+router.get('/:id', asyncHandler(ctrl.findOne));
+
+// Mutations: PRINCIPAL only (UC-56, UC-59, UC-60)
+router.post(
+  '/',
+  requireRoles('PRINCIPAL'),
+  validate(createIncomingSchema),
+  asyncHandler(ctrl.create),
+);
+router.patch(
+  '/:id',
+  requireRoles('PRINCIPAL'),
+  validate(updateIncomingSchema),
+  asyncHandler(ctrl.update),
+);
+router.patch(
+  '/:id/cancel',
+  requireRoles('PRINCIPAL'),
+  validate(cancelTransferSchema),
+  asyncHandler(ctrl.cancel),
+);
+router.delete('/:id', requireRoles('PRINCIPAL'), asyncHandler(ctrl.softDelete));
+
+export default router;
