@@ -176,3 +176,24 @@ export async function update(id, dto, user) {
 }
 
 // ─── Cancel status (UC-60) — record kept for audit, no student side effects ──
+export async function cancel(id, dto, user) {
+  const record = await prisma.incomingTransfer.findFirst({
+    where: { transfer_id: id, deleted_at: null },
+  });
+  if (!record) throw NotFound('Hồ sơ chuyển đến không tồn tại');
+  if (record.status === 'Cancelled') throw Conflict('Hồ sơ đã được hủy trước đó');
+
+  const updated = await prisma.incomingTransfer.update({
+    where: { transfer_id: id },
+    data: {
+      status: 'Cancelled',
+      cancel_reason: dto.cancel_reason ?? null,
+      updated_by: user.sub,
+    },
+    include: TRANSFER_INCLUDE,
+  });
+  logger.info(`Incoming transfer #${id} cancelled`);
+  return updated;
+}
+
+// ─── Soft delete ──────────────────────────────────────────────────────────────

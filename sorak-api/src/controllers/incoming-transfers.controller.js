@@ -15,3 +15,7 @@ export async function findOne(req, res) {
 export async function update(req, res) {
   res.success(await svc.update(Number(req.params.id), req.body, req.user));
 }
+
+export async function cancel(req, res) {
+  res.success(await svc.cancel(Number(req.params.id), req.body, req.user));
+}

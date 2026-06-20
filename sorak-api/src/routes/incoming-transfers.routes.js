@@ -32,5 +32,11 @@ router.patch(
   validate(updateIncomingSchema),
   asyncHandler(ctrl.update),
 );
+router.patch(
+  '/:id/cancel',
+  requireRoles('PRINCIPAL'),
+  validate(cancelTransferSchema),
+  asyncHandler(ctrl.cancel),
+);
 
 export default router;
