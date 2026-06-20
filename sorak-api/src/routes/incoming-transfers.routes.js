@@ -38,5 +38,6 @@ router.patch(
   validate(cancelTransferSchema),
   asyncHandler(ctrl.cancel),
 );
+router.delete('/:id', requireRoles('PRINCIPAL'), asyncHandler(ctrl.softDelete));
 
 export default router;

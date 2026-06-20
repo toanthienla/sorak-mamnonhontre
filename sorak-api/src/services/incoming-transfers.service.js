@@ -197,3 +197,15 @@ export async function cancel(id, dto, user) {
 }
 
 // ─── Soft delete ──────────────────────────────────────────────────────────────
+export async function softDelete(id, user) {
+  const record = await prisma.incomingTransfer.findFirst({
+    where: { transfer_id: id, deleted_at: null },
+  });
+  if (!record) throw NotFound('Hồ sơ chuyển đến không tồn tại');
+  return prisma.incomingTransfer.update({
+    where: { transfer_id: id },
+    data: { deleted_at: new Date(), updated_by: user.sub },
+  });
+}
+
+// ─── Export Excel (UC-61) — Cancelled excluded from official reports ─────────
