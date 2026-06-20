@@ -150,3 +150,29 @@ export async function findOne(id) {
 }
 
 // ─── Update info (UC-59) — Recorded records only ─────────────────────────────
+export async function update(id, dto, user) {
+  const record = await prisma.incomingTransfer.findFirst({
+    where: { transfer_id: id, deleted_at: null },
+  });
+  if (!record) throw NotFound('Hồ sơ chuyển đến không tồn tại');
+  // EF-59-04: cancelled records cannot be edited
+  if (record.status !== 'Recorded') throw Conflict('Chỉ sửa được hồ sơ ở trạng thái Recorded');
+
+  if (dto.transfer_date) {
+    await validateDateInYear(record.school_year_id, dto.transfer_date);
+  }
+
+  return prisma.incomingTransfer.update({
+    where: { transfer_id: id },
+    data: {
+      ...(dto.previous_school !== undefined ? { previous_school: dto.previous_school } : {}),
+      ...(dto.transfer_date !== undefined ? { transfer_date: new Date(dto.transfer_date) } : {}),
+      ...(dto.reason !== undefined ? { reason: dto.reason } : {}),
+      ...(dto.note !== undefined ? { note: dto.note } : {}),
+      updated_by: user.sub,
+    },
+    include: TRANSFER_INCLUDE,
+  });
+}
+
+// ─── Cancel status (UC-60) — record kept for audit, no student side effects ──
