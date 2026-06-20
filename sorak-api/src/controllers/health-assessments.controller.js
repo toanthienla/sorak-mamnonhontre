@@ -31,3 +31,7 @@ export async function byClassDate(req, res) {
 export async function update(req, res) {
   res.success(await svc.update(Number(req.params.id), req.body, req.user));
 }
+
+export async function remove(req, res) {
+  res.success(await svc.remove(Number(req.params.id), req.user));
+}

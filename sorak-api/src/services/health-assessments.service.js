@@ -327,3 +327,18 @@ export async function update(id, dto, user) {
 }
 
 // ─── Delete (UC-66) — hard delete ─────────────────────────────────────────────
+export async function remove(id, user) {
+  const record = await prisma.healthAssessment.findUnique({
+    where: { assessment_id: id },
+  });
+  if (!record) throw NotFound('Bản ghi đánh giá không tồn tại');
+  await assertClassAccess(user, record.class_id);
+  await assertYearOpen(record.school_year_id);
+  // (đánh giá nuôi dưỡng nay độc lập — không còn ràng buộc xóa)
+  await prisma.healthAssessment.delete({ where: { assessment_id: id } });
+  logger.info(`Health assessment #${id} hard-deleted by account ${user.sub}`);
+  return { deleted: true };
+}
+
+// ─── Bulk entry by class — grid input, one date, many students ───────────────
+// Upserts per student+date (same semantics as Excel import, BR-102)

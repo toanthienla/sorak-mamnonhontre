@@ -26,5 +26,6 @@ router.get('/who-curves', validate(curvesQuerySchema, 'query'), asyncHandler(ctr
 router.post('/', validate(createHealthSchema), asyncHandler(ctrl.create));
 router.get('/:id', asyncHandler(ctrl.findOne));
 router.patch('/:id', validate(updateHealthSchema), asyncHandler(ctrl.update));
+router.delete('/:id', asyncHandler(ctrl.remove));
 
 export default router;
