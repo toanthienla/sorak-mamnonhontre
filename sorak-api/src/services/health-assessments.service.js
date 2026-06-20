@@ -269,3 +269,61 @@ export function curves(query) {
 }
 
 // ─── Update (UC-65) ──────────────────────────────────────────────────────────
+export async function update(id, dto, user) {
+  const record = await prisma.healthAssessment.findUnique({
+    where: { assessment_id: id },
+    include: { student: true },
+  });
+  if (!record) throw NotFound('Bản ghi đánh giá không tồn tại');
+  await assertClassAccess(user, record.class_id);
+
+  // BR-140
+  if (record.student.student_status === TRANSFERRED_OUT) {
+    throw Conflict('Học sinh đã chuyển trường — không thể cập nhật');
+  }
+  const year = await assertYearOpen(record.school_year_id);
+
+  let date = record.assessment_date;
+  if (dto.assessment_date) {
+    date = validateDate(year, dto.assessment_date);
+    // EF-65-05: duplicate date with another record
+    const dupe = await prisma.healthAssessment.findFirst({
+      where: { student_id: record.student_id, assessment_date: date, assessment_id: { not: id } },
+    });
+    if (dupe) throw Conflict('Học sinh đã có bản ghi đánh giá cho ngày này');
+  }
+
+  const heightCm = dto.height_cm !== undefined ? dto.height_cm : record.height_cm;
+  const weightKg = dto.weight_kg !== undefined ? dto.weight_kg : record.weight_kg;
+
+  // BR-097/107: recalculate on any change
+  const growth = evaluateGrowth({
+    gender: record.student.gender,
+    dateOfBirth: record.student.date_of_birth,
+    assessmentDate: date,
+    heightCm,
+    weightKg,
+  });
+
+  const updated = await prisma.healthAssessment.update({
+    where: { assessment_id: id },
+    data: {
+      assessment_date: date,
+      height_cm: heightCm,
+      weight_kg: weightKg,
+      bmi: growth.bmi,
+      bmi_z: growth.bmi_z,
+      height_z: growth.height_z,
+      weight_z: growth.weight_z,
+      bmi_status: growth.bmi_status,
+      height_status: growth.height_status,
+      weight_status: growth.weight_status,
+      ...(dto.note !== undefined ? { note: dto.note } : {}),
+      updated_by: user.sub, // BR-100
+    },
+    include: ASSESSMENT_INCLUDE,
+  });
+  return updated;
+}
+
+// ─── Delete (UC-66) — hard delete ─────────────────────────────────────────────
