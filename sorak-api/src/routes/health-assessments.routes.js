@@ -19,12 +19,16 @@ const router = Router();
 router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 // Static routes BEFORE /:id
-
 router.get('/', validate(queryHealthSchema, 'query'), asyncHandler(ctrl.findAll));
 router.get('/history', validate(historyQuerySchema, 'query'), asyncHandler(ctrl.history));
 router.get('/who-curves', validate(curvesQuerySchema, 'query'), asyncHandler(ctrl.curves));
+router.get('/import/template', asyncHandler(ctrl.importTemplate));
+router.post('/import/preview', uploadXlsx.single('file'), asyncHandler(ctrl.previewImport));
+router.post('/import', uploadXlsx.single('file'), asyncHandler(ctrl.importExcel));
+router.get('/export/excel', asyncHandler(ctrl.exportExcel));
 router.get('/by-class-date', validate(byClassDateSchema, 'query'), asyncHandler(ctrl.byClassDate));
 router.post('/bulk', validate(bulkHealthSchema), asyncHandler(ctrl.bulkUpsert));
+
 router.post('/', validate(createHealthSchema), asyncHandler(ctrl.create));
 router.get('/:id', asyncHandler(ctrl.findOne));
 router.patch('/:id', validate(updateHealthSchema), asyncHandler(ctrl.update));

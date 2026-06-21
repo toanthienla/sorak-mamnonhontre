@@ -1,4 +1,4 @@
-// Đánh giá sức khỏes — UC-62..68
+// Health Assessments — UC-62..68
 // BR-087..110, BR-127..131, BR-139, BR-140
 import ExcelJS from 'exceljs';
 import prisma from '../config/prisma.js';
@@ -511,4 +511,163 @@ async function parseImportRows(buffer, classId, schoolYearId) {
     rows.push(r);
   });
   return { rows, students: byCard };
+}
+
+export async function previewImport(buffer, classId, schoolYearId, user) {
+  await assertClassAccess(user, classId);
+  await assertYearOpen(schoolYearId);
+  const { rows } = await parseImportRows(buffer, classId, schoolYearId);
+  return {
+    rows: rows.map((r) => ({
+      row: r.row,
+      card: r.card,
+      name: r.name,
+      date: r.date ? r.date.toISOString().slice(0, 10) : '',
+      height_cm: r.height_cm,
+      weight_kg: r.weight_kg,
+      note: r.note ?? '',
+      valid: r.errors.length === 0,
+      errors: r.errors,
+    })),
+    valid_count: rows.filter((r) => r.errors.length === 0).length,
+    error_count: rows.filter((r) => r.errors.length > 0).length,
+  };
+}
+
+export async function importExcel(buffer, classId, schoolYearId, user) {
+  await assertClassAccess(user, classId);
+  await assertYearOpen(schoolYearId);
+  const { rows, students } = await parseImportRows(buffer, classId, schoolYearId);
+
+  let created = 0,
+    updated = 0;
+  for (const r of rows) {
+    if (r.errors.length > 0) continue;
+    const student = students.get(r.card);
+    const growth = evaluateGrowth({
+      gender: student.gender,
+      dateOfBirth: student.date_of_birth,
+      assessmentDate: r.date,
+      heightCm: r.height_cm,
+      weightKg: r.weight_kg,
+    });
+    const data = {
+      height_cm: r.height_cm,
+      weight_kg: r.weight_kg,
+      bmi: growth.bmi,
+      bmi_z: growth.bmi_z,
+      height_z: growth.height_z,
+      weight_z: growth.weight_z,
+      bmi_status: growth.bmi_status,
+      height_status: growth.height_status,
+      weight_status: growth.weight_status,
+      note: r.note,
+      updated_by: user.sub,
+    };
+    // BR-102: same student + date → update
+    const existing = await prisma.healthAssessment.findFirst({
+      where: { student_id: r.student_id, assessment_date: r.date },
+    });
+    if (existing) {
+      await prisma.healthAssessment.update({
+        where: { assessment_id: existing.assessment_id },
+        data,
+      });
+      updated++;
+    } else {
+      await prisma.healthAssessment.create({
+        data: {
+          student_id: r.student_id,
+          school_year_id: schoolYearId,
+          class_id: classId,
+          assessment_date: r.date,
+          created_by: user.sub,
+          ...data,
+        },
+      });
+      created++;
+    }
+  }
+  return { created, updated, error_count: rows.filter((r) => r.errors.length > 0).length };
+}
+
+export async function importTemplate() {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Mẫu nhập sức khỏe');
+  ws.columns = [
+    { header: 'Mã thẻ HS (*)', key: 'card', width: 16 },
+    { header: 'Họ tên (tham khảo)', key: 'name', width: 25 },
+    { header: 'Ngày đánh giá (*) (YYYY-MM-DD)', key: 'date', width: 26 },
+    { header: 'Chiều cao cm (*)', key: 'height', width: 16 },
+    { header: 'Cân nặng kg (*)', key: 'weight', width: 16 },
+    { header: 'Ghi chú', key: 'note', width: 30 },
+  ];
+  ws.getRow(1).font = { bold: true };
+  ws.addRow({
+    card: 'HS250001',
+    name: 'Nguyễn Văn A',
+    date: '2026-09-15',
+    height: 100.5,
+    weight: 16.2,
+    note: '',
+  });
+  return wb.xlsx.writeBuffer();
+}
+
+// ─── Export (UC-68) ──────────────────────────────────────────────────────────
+export async function exportExcel(query, user) {
+  const where = {};
+  if (query.school_year_id) where.school_year_id = Number(query.school_year_id);
+  if (query.class_id) where.class_id = Number(query.class_id);
+  if (query.student_id) where.student_id = Number(query.student_id);
+  if (query.bmi_status) where.bmi_status = query.bmi_status;
+
+  if (user.role === 'TEACHER') {
+    const myClassIds = await getTeacherClassIds(user.sub);
+    where.class_id =
+      query.class_id && myClassIds.includes(Number(query.class_id))
+        ? Number(query.class_id)
+        : { in: myClassIds };
+  }
+
+  const records = await prisma.healthAssessment.findMany({
+    where,
+    include: ASSESSMENT_INCLUDE,
+    orderBy: [{ student_id: 'asc' }, { assessment_date: 'desc' }],
+  });
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Đánh giá sức khỏe');
+  ws.columns = [
+    { header: 'Mã thẻ HS', key: 'card', width: 14 },
+    { header: 'Họ tên', key: 'name', width: 25 },
+    { header: 'Lớp', key: 'class', width: 12 },
+    { header: 'Năm học', key: 'year', width: 12 },
+    { header: 'Ngày đánh giá', key: 'date', width: 14 },
+    { header: 'Cao (cm)', key: 'height', width: 10 },
+    { header: 'Nặng (kg)', key: 'weight', width: 10 },
+    { header: 'BMI', key: 'bmi', width: 8 },
+    { header: 'BMI/tuổi', key: 'bmi_status', width: 16 },
+    { header: 'Cao/tuổi', key: 'height_status', width: 16 },
+    { header: 'Nặng/tuổi', key: 'weight_status', width: 20 },
+    { header: 'Ghi chú', key: 'note', width: 30 },
+  ];
+  ws.getRow(1).font = { bold: true };
+  for (const r of records) {
+    ws.addRow({
+      card: r.student.student_id_card_number,
+      name: r.student.full_name,
+      class: r.class?.class_name ?? '',
+      year: r.school_year.name,
+      date: r.assessment_date.toISOString().slice(0, 10),
+      height: r.height_cm ?? '',
+      weight: r.weight_kg ?? '',
+      bmi: r.bmi ?? '',
+      bmi_status: r.bmi_status ?? '',
+      height_status: r.height_status ?? '',
+      weight_status: r.weight_status ?? '',
+      note: r.note ?? '',
+    });
+  }
+  return wb.xlsx.writeBuffer();
 }
