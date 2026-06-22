@@ -188,3 +188,143 @@ export async function gridAll(query, user) {
 }
 
 // ─── Bulk upsert one period for a class ──────────────────────────────────────
+export async function bulkUpsert(dto, user) {
+  const { school_year_id, class_id, period, rows } = dto;
+  if (!PERIOD_CODES.includes(period)) throw BadRequest('Giai đoạn không hợp lệ');
+  await assertClassAccess(user, class_id);
+  await assertYearOpen(school_year_id);
+
+  const enrollments = await prisma.studentEnrollment.findMany({
+    where: { class_id, left_date: null },
+    include: { student: { select: { student_id: true, student_status: true } } },
+  });
+  const inClass = new Map(enrollments.map((e) => [e.student_id, e.student]));
+
+  let saved = 0,
+    cleared = 0,
+    skipped = 0;
+  for (const row of rows) {
+    const student = inClass.get(row.student_id);
+    if (!student || student.student_status === TRANSFERRED_OUT) {
+      skipped++;
+      continue;
+    }
+
+    const channel = WEIGHT_CHANNELS.includes(row.weight_channel) ? row.weight_channel : null;
+    const empty =
+      !channel &&
+      !row.is_stunting &&
+      !row.is_severe_stunting &&
+      !row.is_obese &&
+      !(row.note ?? '').trim();
+
+    const existing = await prisma.nutritionAssessment.findUnique({
+      where: {
+        student_id_school_year_id_period: { student_id: row.student_id, school_year_id, period },
+      },
+    });
+
+    if (empty) {
+      if (existing) {
+        await prisma.nutritionAssessment.delete({ where: { nutrition_id: existing.nutrition_id } });
+        cleared++;
+      }
+      continue;
+    }
+
+    const data = {
+      weight_channel: channel,
+      is_stunting: !!row.is_stunting,
+      is_severe_stunting: !!row.is_severe_stunting,
+      is_obese: !!row.is_obese,
+      note: (row.note ?? '').trim() || null,
+      updated_by: user.sub,
+    };
+    if (existing) {
+      await prisma.nutritionAssessment.update({
+        where: { nutrition_id: existing.nutrition_id },
+        data,
+      });
+    } else {
+      await prisma.nutritionAssessment.create({
+        data: {
+          student_id: row.student_id,
+          school_year_id,
+          class_id,
+          period,
+          created_by: user.sub,
+          ...data,
+        },
+      });
+    }
+    saved++;
+  }
+  logger.info(
+    `Nutrition grid class ${class_id} ${period}: saved ${saved}, cleared ${cleared}, skipped ${skipped}`,
+  );
+  return { saved, cleared, skipped };
+}
+
+// ─── Import (Excel) one period for a class ───────────────────────────────────
+const CHANNEL_ALIASES = {
+  'binh thuong': null,
+  '': null,
+  'suy dinh duong the nhe can': 'Suy dinh dưỡng thể nhẹ cân',
+  'kenh suy dd the nhe can': 'Suy dinh dưỡng thể nhẹ cân',
+  'can nang cao hon tuoi': 'Cân nặng cao hơn tuổi',
+  'kenh can nang cao hon tuoi': 'Cân nặng cao hơn tuổi',
+};
+const norm = (s) =>
+  String(s ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd');
+const truthy = (s) => ['x', 'có', 'co', '1', 'true', 'yes'].includes(norm(s));
+
+async function parseImportRows(buffer, classId) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const ws = wb.worksheets[0];
+  if (!ws) throw BadRequest('File không có sheet dữ liệu');
+
+  const enrollments = await prisma.studentEnrollment.findMany({
+    where: { class_id: classId, left_date: null },
+    include: { student: true },
+  });
+  const byCard = new Map(enrollments.map((e) => [e.student.student_id_card_number, e.student]));
+
+  const rows = [];
+  ws.eachRow((row, n) => {
+    if (n === 1) return; // header
+    const card = String(row.getCell(1).text ?? '').trim();
+    if (!card) return;
+    const channelRaw = String(row.getCell(3).text ?? '').trim();
+    const r = {
+      row: n,
+      card,
+      name: String(row.getCell(2).text ?? '').trim(),
+      channel_raw: channelRaw,
+      is_stunting: truthy(row.getCell(4).text),
+      is_severe_stunting: truthy(row.getCell(5).text),
+      is_obese: truthy(row.getCell(6).text),
+      errors: [],
+    };
+    const student = byCard.get(card);
+    if (!student) r.errors.push('Học sinh không thuộc lớp đã chọn');
+    else {
+      r.student_id = student.student_id;
+      r.name = student.full_name;
+      if (student.student_status === TRANSFERRED_OUT) r.errors.push('Học sinh đã chuyển trường');
+    }
+    const key = norm(channelRaw);
+    if (channelRaw && !(key in CHANNEL_ALIASES)) {
+      r.errors.push('Kênh tăng trưởng không hợp lệ');
+    } else {
+      r.weight_channel = CHANNEL_ALIASES[key] ?? null;
+    }
+    rows.push(r);
+  });
+  return rows;
+}

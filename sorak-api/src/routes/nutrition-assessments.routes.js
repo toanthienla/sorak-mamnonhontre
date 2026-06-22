@@ -16,5 +16,6 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 router.get('/grid', validate(nutritionGridQuerySchema, 'query'), asyncHandler(ctrl.grid));
 router.get('/grid-all', validate(nutritionGridAllQuerySchema, 'query'), asyncHandler(ctrl.gridAll));
+router.post('/bulk', validate(nutritionBulkSchema), asyncHandler(ctrl.bulkUpsert));
 
 export default router;

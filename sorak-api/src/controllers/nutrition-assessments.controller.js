@@ -7,3 +7,7 @@ export async function grid(req, res) {
 export async function gridAll(req, res) {
   res.success(await svc.gridAll(req.query, req.user));
 }
+
+export async function bulkUpsert(req, res) {
+  res.success(await svc.bulkUpsert(req.body, req.user));
+}
