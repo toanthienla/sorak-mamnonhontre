@@ -328,3 +328,114 @@ async function parseImportRows(buffer, classId) {
   });
   return rows;
 }
+
+export async function previewImport(buffer, classId, schoolYearId, user) {
+  await assertClassAccess(user, classId);
+  await assertYearOpen(schoolYearId);
+  const rows = await parseImportRows(buffer, classId);
+  return {
+    rows: rows.map((r) => ({
+      row: r.row,
+      card: r.card,
+      name: r.name,
+      channel: r.weight_channel ?? 'Bình thường',
+      stunting: r.is_stunting ? 'x' : '',
+      severe: r.is_severe_stunting ? 'x' : '',
+      obese: r.is_obese ? 'x' : '',
+      valid: r.errors.length === 0,
+      errors: r.errors,
+    })),
+    valid_count: rows.filter((r) => r.errors.length === 0).length,
+    error_count: rows.filter((r) => r.errors.length > 0).length,
+  };
+}
+
+export async function importExcel(buffer, classId, schoolYearId, period, user) {
+  if (!PERIOD_CODES.includes(period)) throw BadRequest('Giai đoạn không hợp lệ');
+  await assertClassAccess(user, classId);
+  await assertYearOpen(schoolYearId);
+  const rows = await parseImportRows(buffer, classId);
+
+  let saved = 0,
+    skipped = 0;
+  for (const r of rows) {
+    if (r.errors.length > 0) {
+      skipped++;
+      continue;
+    }
+    const empty = !r.weight_channel && !r.is_stunting && !r.is_severe_stunting && !r.is_obese;
+    const existing = await prisma.nutritionAssessment.findUnique({
+      where: {
+        student_id_school_year_id_period: {
+          student_id: r.student_id,
+          school_year_id: schoolYearId,
+          period,
+        },
+      },
+    });
+    if (empty) {
+      if (existing) {
+        await prisma.nutritionAssessment.delete({ where: { nutrition_id: existing.nutrition_id } });
+      }
+      continue;
+    }
+    const data = {
+      weight_channel: r.weight_channel,
+      is_stunting: r.is_stunting,
+      is_severe_stunting: r.is_severe_stunting,
+      is_obese: r.is_obese,
+      updated_by: user.sub,
+    };
+    if (existing)
+      await prisma.nutritionAssessment.update({
+        where: { nutrition_id: existing.nutrition_id },
+        data,
+      });
+    else
+      await prisma.nutritionAssessment.create({
+        data: {
+          student_id: r.student_id,
+          school_year_id: schoolYearId,
+          class_id: classId,
+          period,
+          created_by: user.sub,
+          ...data,
+        },
+      });
+    saved++;
+  }
+  return { saved, skipped, error_count: rows.filter((r) => r.errors.length > 0).length };
+}
+
+export async function importTemplate() {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Mẫu nhập nuôi dưỡng');
+  ws.columns = [
+    { header: 'Mã thẻ HS (*)', key: 'card', width: 16 },
+    { header: 'Họ tên (tham khảo)', key: 'name', width: 25 },
+    { header: 'Kênh tăng trưởng cân nặng', key: 'channel', width: 30 },
+    { header: 'Thấp còi (x)', key: 'stunting', width: 12 },
+    { header: 'Còi cọc (x)', key: 'severe', width: 12 },
+    { header: 'Béo phì (x)', key: 'obese', width: 12 },
+  ];
+  ws.getRow(1).font = { bold: true };
+  ws.addRow({
+    card: 'HS250001',
+    name: 'Nguyễn Văn A',
+    channel: 'Bình thường',
+    stunting: '',
+    severe: '',
+    obese: '',
+  });
+  ws.addRow({
+    card: '',
+    name: 'Kênh hợp lệ: Bình thường | Suy dinh dưỡng thể nhẹ cân | Cân nặng cao hơn tuổi',
+    channel: '',
+    stunting: '',
+    severe: '',
+    obese: '',
+  });
+  return wb.xlsx.writeBuffer();
+}
+
+// ─── Export one period ────────────────────────────────────────────────────────
