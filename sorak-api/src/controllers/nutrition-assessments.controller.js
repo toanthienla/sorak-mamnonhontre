@@ -44,3 +44,13 @@ export async function importTemplate(req, res) {
   res.setHeader('Content-Disposition', 'attachment; filename="mau_nhap_dinh_duong.xlsx"');
   res.send(Buffer.from(buf));
 }
+
+export async function exportExcel(req, res) {
+  const buf = await svc.exportExcel(req.query, req.user);
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+  res.setHeader('Content-Disposition', `attachment; filename="nutrition_${Date.now()}.xlsx"`);
+  res.send(Buffer.from(buf));
+}

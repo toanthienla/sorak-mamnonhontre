@@ -16,6 +16,11 @@ router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
 
 router.get('/grid', validate(nutritionGridQuerySchema, 'query'), asyncHandler(ctrl.grid));
 router.get('/grid-all', validate(nutritionGridAllQuerySchema, 'query'), asyncHandler(ctrl.gridAll));
+router.get(
+  '/export/excel',
+  validate(nutritionGridQuerySchema, 'query'),
+  asyncHandler(ctrl.exportExcel),
+);
 router.get('/import/template', asyncHandler(ctrl.importTemplate));
 router.post('/import/preview', uploadXlsx.single('file'), asyncHandler(ctrl.previewImport));
 router.post('/import', uploadXlsx.single('file'), asyncHandler(ctrl.importExcel));

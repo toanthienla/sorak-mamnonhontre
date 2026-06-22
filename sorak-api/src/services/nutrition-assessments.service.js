@@ -439,3 +439,59 @@ export async function importTemplate() {
 }
 
 // ─── Export one period ────────────────────────────────────────────────────────
+export async function exportExcel(query, user) {
+  const classId = Number(query.class_id);
+  const schoolYearId = Number(query.school_year_id);
+  const period = query.period;
+  if (!PERIOD_CODES.includes(period)) throw BadRequest('Giai đoạn không hợp lệ');
+  await assertClassAccess(user, classId);
+
+  const data = await grid(query, user);
+  const cls = await prisma.class.findUnique({
+    where: { class_id: classId },
+    select: { class_name: true },
+  });
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Đánh giá nuôi dưỡng');
+  ws.addRow([`Đánh giá nuôi dưỡng — Lớp ${cls?.class_name ?? ''} — ${PERIOD_LABEL[period]}`]);
+  ws.getRow(1).font = { bold: true, size: 13 };
+  ws.addRow([]);
+  const head = ws.addRow([
+    'STT',
+    'Họ tên',
+    'Ngày sinh',
+    'Giới tính',
+    'Kênh tăng trưởng cân nặng',
+    'Thấp còi',
+    'Còi cọc',
+    'Béo phì',
+    'Ghi chú',
+  ]);
+  head.font = { bold: true };
+  ws.columns = [
+    { width: 6 },
+    { width: 25 },
+    { width: 13 },
+    { width: 10 },
+    { width: 28 },
+    { width: 10 },
+    { width: 10 },
+    { width: 10 },
+    { width: 30 },
+  ];
+  data.forEach((r, i) => {
+    ws.addRow([
+      i + 1,
+      r.full_name,
+      r.date_of_birth.toISOString().slice(0, 10),
+      r.gender,
+      r.weight_channel ?? 'Bình thường',
+      r.is_stunting ? 'x' : '',
+      r.is_severe_stunting ? 'x' : '',
+      r.is_obese ? 'x' : '',
+      r.note ?? '',
+    ]);
+  });
+  return wb.xlsx.writeBuffer();
+}
