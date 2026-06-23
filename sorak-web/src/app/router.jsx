@@ -10,6 +10,9 @@ import { TeachersPage } from '../features/teachers/TeachersPage';
 import { ClassesPage } from '../features/classes/ClassesPage';
 import { StudentsPage } from '../features/students/StudentsPage';
 import { ParentPage } from '../features/parent/ParentPage';
+import { TransfersPage } from '../features/transfers/TransfersPage';
+import { HealthPage } from '../features/health/HealthPage';
+import { GrowthPage } from '../features/growth/GrowthPage';
 import { useAuthStore } from '@/shared/stores/auth.store';
 
 const Forbidden = () => (
@@ -66,6 +69,9 @@ export function AppRouter() {
         } />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/students" element={<StudentsPage />} />
+        <Route path="/transfers" element={<TransfersPage />} />
+        <Route path="/health" element={<HealthPage />} />
+        <Route path="/growth" element={<GrowthPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
