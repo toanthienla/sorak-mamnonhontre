@@ -1,8 +1,22 @@
 import { useState, useMemo } from 'react';
-import { SlidersHorizontal, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft } from 'lucide-react';
+import {
+  SlidersHorizontal,
+  ChevronUp,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  ChevronsRight,
+  ChevronsLeft,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { cn } from '@/shared/lib/utils';
 
 export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderChange }) {
@@ -11,7 +25,7 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
   // local state inside dialog — only applied on confirm
   const [localHidden, setLocalHidden] = useState(hidden);
   const [localOrder, setLocalOrder] = useState(order);
-  const [selHidden, setSelHidden] = useState(new Set());   // selected in left panel
+  const [selHidden, setSelHidden] = useState(new Set()); // selected in left panel
   const [selVisible, setSelVisible] = useState(new Set()); // selected in right panel
   const [searchHidden, setSearchHidden] = useState('');
   const [searchVisible, setSearchVisible] = useState('');
@@ -34,7 +48,10 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
 
   // ordered visible columns (in order, not hidden)
   const visibleCols = useMemo(
-    () => localOrder.map((k) => columns.find((c) => c.key === k)).filter((c) => c && !localHidden.has(c.key)),
+    () =>
+      localOrder
+        .map((k) => columns.find((c) => c.key === k))
+        .filter((c) => c && !localHidden.has(c.key)),
     [localOrder, localHidden, columns],
   );
   // hidden columns (original order)
@@ -56,7 +73,10 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
       next.has(key) ? next.delete(key) : next.add(key);
     } else {
       if (next.size === 1 && next.has(key)) next.clear();
-      else { next.clear(); next.add(key); }
+      else {
+        next.clear();
+        next.add(key);
+      }
     }
     setFn(next);
   };
@@ -95,7 +115,9 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
     const selected = [...selVisible];
     selected.forEach((k) => {
       const i = keys.indexOf(k);
-      if (i > 0) { [keys[i - 1], keys[i]] = [keys[i], keys[i - 1]]; }
+      if (i > 0) {
+        [keys[i - 1], keys[i]] = [keys[i], keys[i - 1]];
+      }
     });
     // rebuild full order: hidden keys stay in their position, visible reordered
     const hiddenKeys = localOrder.filter((k) => localHidden.has(k));
@@ -108,7 +130,9 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
     const selected = [...selVisible].reverse();
     selected.forEach((k) => {
       const i = keys.indexOf(k);
-      if (i < keys.length - 1) { [keys[i + 1], keys[i]] = [keys[i], keys[i + 1]]; }
+      if (i < keys.length - 1) {
+        [keys[i + 1], keys[i]] = [keys[i], keys[i + 1]];
+      }
     });
     const hiddenKeys = localOrder.filter((k) => localHidden.has(k));
     setLocalOrder([...hiddenKeys, ...keys]);
@@ -166,17 +190,41 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
 
             {/* Middle buttons */}
             <div className="flex flex-col items-center justify-center gap-1.5 py-8">
-              <Button variant="outline" size="icon" className="h-8 w-8" title="Thêm chọn" onClick={() => moveToVisible(selHidden)}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                title="Thêm chọn"
+                onClick={() => moveToVisible(selHidden)}
+              >
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8" title="Bỏ chọn" onClick={() => moveToHidden(selVisible)}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                title="Bỏ chọn"
+                onClick={() => moveToHidden(selVisible)}
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <div className="h-2" />
-              <Button variant="outline" size="icon" className="h-8 w-8" title="Thêm tất cả" onClick={moveAllToVisible}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                title="Thêm tất cả"
+                onClick={moveAllToVisible}
+              >
                 <ChevronsRight className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8" title="Bỏ tất cả" onClick={moveAllToHidden}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                title="Bỏ tất cả"
+                onClick={moveAllToHidden}
+              >
                 <ChevronsLeft className="h-4 w-4" />
               </Button>
             </div>
@@ -218,10 +266,22 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
                 </div>
                 {/* Up/down */}
                 <div className="flex flex-col items-center justify-center gap-1.5">
-                  <Button variant="outline" size="icon" className="h-8 w-8" title="Lên" onClick={moveUp}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Lên"
+                    onClick={moveUp}
+                  >
                     <ChevronUp className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" className="h-8 w-8" title="Xuống" onClick={moveDown}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Xuống"
+                    onClick={moveDown}
+                  >
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
@@ -230,7 +290,9 @@ export function ColumnToggle({ columns, hidden, onHiddenChange, order, onOrderCh
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={confirm}>Áp dụng</Button>
           </DialogFooter>
         </DialogContent>

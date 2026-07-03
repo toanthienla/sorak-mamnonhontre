@@ -5,7 +5,9 @@ export function useColumnSettings(storageKey, defaultKeys) {
     try {
       const s = localStorage.getItem(storageKey + ':hidden');
       return s ? new Set(JSON.parse(s)) : new Set();
-    } catch { return new Set(); }
+    } catch {
+      return new Set();
+    }
   });
 
   const [order, setOrder] = useState(() => {
@@ -17,7 +19,9 @@ export function useColumnSettings(storageKey, defaultKeys) {
         const added = defaultKeys.filter((k) => !saved.includes(k));
         return [...valid, ...added];
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return defaultKeys;
   });
 

@@ -19,7 +19,12 @@ router.post('/refresh', asyncHandler(ctrl.refresh));
 router.post('/logout', authMiddleware, asyncHandler(ctrl.logout));
 router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(ctrl.forgotPassword));
 router.post('/reset-password', validate(resetPasswordSchema), asyncHandler(ctrl.resetPassword));
-router.post('/change-password', authMiddleware, validate(changePasswordSchema), asyncHandler(ctrl.changePassword));
+router.post(
+  '/change-password',
+  authMiddleware,
+  validate(changePasswordSchema),
+  asyncHandler(ctrl.changePassword),
+);
 router.get('/me', authMiddleware, asyncHandler(ctrl.me));
 
 export default router;

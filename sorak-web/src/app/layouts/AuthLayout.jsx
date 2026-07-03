@@ -2,7 +2,10 @@ import { Outlet } from 'react-router-dom';
 
 export function AuthLayout() {
   return (
-    <div className="min-h-screen flex" style={{ fontFamily: '"Be Vietnam Pro", system-ui, sans-serif' }}>
+    <div
+      className="min-h-screen flex"
+      style={{ fontFamily: '"Be Vietnam Pro", system-ui, sans-serif' }}
+    >
       {/* ── Left panel ── */}
       <div
         className="hidden lg:flex flex-col justify-center relative overflow-hidden flex-1 px-16"
@@ -12,16 +15,14 @@ export function AuthLayout() {
         <div
           className="absolute inset-0 opacity-5 pointer-events-none"
           style={{
-            backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
+            backgroundImage:
+              'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
             backgroundSize: '40px 40px',
           }}
         />
 
         {/* Amber accent bar */}
-        <div
-          className="absolute top-0 left-0 bottom-0 w-1"
-          style={{ background: '#f5a623' }}
-        />
+        <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: '#f5a623' }} />
 
         <div className="relative z-10 max-w-md">
           {/* Logo */}
@@ -33,10 +34,16 @@ export function AuthLayout() {
           </div>
 
           {/* Headline */}
-          <h2 className="text-5xl font-black leading-tight mb-6" style={{ color: '#ffffff', letterSpacing: '-0.02em' }}>
-            Hệ thống<br />
-            quản lý<br />
-            <span style={{ color: '#f5a623' }}>giáo dục</span><br />
+          <h2
+            className="text-5xl font-black leading-tight mb-6"
+            style={{ color: '#ffffff', letterSpacing: '-0.02em' }}
+          >
+            Hệ thống
+            <br />
+            quản lý
+            <br />
+            <span style={{ color: '#f5a623' }}>giáo dục</span>
+            <br />
             mầm non.
           </h2>
 
@@ -45,7 +52,8 @@ export function AuthLayout() {
 
           {/* Description */}
           <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
-            Triển khai tại Trường Mầm non Hòn Tre — quản lý học sinh, giáo viên và phụ huynh trên một nền tảng.
+            Triển khai tại Trường Mầm non Hòn Tre — quản lý học sinh, giáo viên và phụ huynh trên
+            một nền tảng.
           </p>
         </div>
       </div>

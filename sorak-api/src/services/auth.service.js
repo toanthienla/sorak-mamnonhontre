@@ -63,7 +63,7 @@ export async function parentLogin(cardNumber, password) {
   const ok = await bcrypt.compare(password, student.account.password_hash);
   if (!ok) throw Unauthorized('Mã thẻ hoặc mật khẩu không đúng');
 
-  const payload = { sub: student.account.account_id, role: 'PH' };
+  const payload = { sub: student.account.account_id, role: 'PARENT' };
   return {
     accessToken: signAccess(payload),
     refreshToken: signRefresh(payload),
@@ -72,7 +72,7 @@ export async function parentLogin(cardNumber, password) {
       student_id: student.student_id,
       student_id_card_number: student.student_id_card_number,
       full_name: student.full_name,
-      role: 'PH',
+      role: 'PARENT',
     },
   };
 }
@@ -89,12 +89,12 @@ export async function refresh(refreshToken) {
 
 // ─── /me ────────────────────────────────────────────────────────────────────
 export async function getMe(reqUser) {
-  if (reqUser.role === 'PH') {
+  if (reqUser.role === 'PARENT') {
     const student = await prisma.student.findFirst({
       where: { account_id: reqUser.sub, deleted_at: null },
       include: {
         parents: true,
-        student_classes: {
+        enrollments: {
           where: { left_date: null },
           include: { class: { include: { school_year: { select: { name: true } } } } },
           orderBy: { enrolled_date: 'desc' },
@@ -103,7 +103,7 @@ export async function getMe(reqUser) {
       },
     });
     if (!student) throw Unauthorized();
-    return { ...student, role: 'PH' };
+    return { ...student, role: 'PARENT' };
   }
 
   // BGH/GV
@@ -152,8 +152,11 @@ export async function forgotPassword(email) {
       data: { otp_code: code, otp_expires_at: expires },
     });
     if (isEmailConfigured()) {
-      try { await sendOtpEmail(email, code); }
-      catch (e) { logger.error(`SMTP failed: ${e.message}. OTP: ${code}`); }
+      try {
+        await sendOtpEmail(email, code);
+      } catch (e) {
+        logger.error(`SMTP failed: ${e.message}. OTP: ${code}`);
+      }
     } else {
       logger.info(`OTP for ${email}: ${code} (10 min)`);
     }

@@ -48,14 +48,14 @@ src/
 
 ## Endpoints (under `/api`)
 
-| Module | Endpoints |
-|---|---|
-| Auth | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET /auth/me` |
-| Accounts | full CRUD + `PATCH /:id/role` + `POST /:id/restore` (BGH only) |
-| Academic Years | full CRUD + `PATCH /:id/activate` |
-| Classes | full CRUD + `POST /import` + `GET /export/excel` |
-| Teachers | full CRUD + `PATCH /:id/restore` + `POST /import` + `GET /export/excel` |
-| Students | full CRUD + `POST /:id/parents` + `PATCH /:id/restore` + `POST /import` + `GET /export/excel` |
+| Module         | Endpoints                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth           | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET /auth/me` |
+| Accounts       | full CRUD + `PATCH /:id/role` + `POST /:id/restore` (BGH only)                                                                           |
+| Academic Years | full CRUD + `PATCH /:id/activate`                                                                                                        |
+| Classes        | full CRUD + `POST /import` + `GET /export/excel`                                                                                         |
+| Teachers       | full CRUD + `PATCH /:id/restore` + `POST /import` + `GET /export/excel`                                                                  |
+| Students       | full CRUD + `POST /:id/parents` + `PATCH /:id/restore` + `POST /import` + `GET /export/excel`                                            |
 
 ## Response shape
 

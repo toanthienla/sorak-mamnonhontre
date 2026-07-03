@@ -29,6 +29,21 @@ export async function restore(req, res) {
   res.success(await svc.restore(Number(req.params.id)));
 }
 
+export async function importTemplate(req, res) {
+  const buf = await svc.importTemplate();
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+  res.setHeader('Content-Disposition', 'attachment; filename="mau_nhap_can_bo.xlsx"');
+  res.send(buf);
+}
+
+export async function previewImport(req, res) {
+  if (!req.file) throw BadRequest('Thiếu file');
+  res.success(await svc.previewImport(req.file.buffer));
+}
+
 export async function importExcel(req, res) {
   if (!req.file) throw BadRequest('Thiếu file');
   res.success(await svc.importExcel(req.file.buffer));

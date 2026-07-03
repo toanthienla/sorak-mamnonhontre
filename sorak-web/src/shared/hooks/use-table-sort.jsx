@@ -33,10 +33,13 @@ export function useTableSort(rows, fieldMap) {
 
   function SortIcon({ colKey }) {
     if (!fieldMap[colKey]) return null;
-    if (sort.key !== colKey) return <ChevronsUpDown className="h-3.5 w-3.5 ml-1 text-muted-foreground/50 inline" />;
-    return sort.dir === 'asc'
-      ? <ChevronUp className="h-3.5 w-3.5 ml-1 inline" />
-      : <ChevronDown className="h-3.5 w-3.5 ml-1 inline" />;
+    if (sort.key !== colKey)
+      return <ChevronsUpDown className="h-3.5 w-3.5 ml-1 text-muted-foreground/50 inline" />;
+    return sort.dir === 'asc' ? (
+      <ChevronUp className="h-3.5 w-3.5 ml-1 inline" />
+    ) : (
+      <ChevronDown className="h-3.5 w-3.5 ml-1 inline" />
+    );
   }
 
   return { sortedRows, sort, toggleSort, SortIcon };

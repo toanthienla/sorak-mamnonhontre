@@ -11,8 +11,5 @@ export function cloudinaryThumb(url, size = 80) {
   if (!url.includes('res.cloudinary.com')) return url;
   // Insert transform before /upload/<version-or-public-id>
   // e.g. .../image/upload/students/... → .../image/upload/w_80,h_80,c_fill,q_auto,f_auto/students/...
-  return url.replace(
-    '/image/upload/',
-    `/image/upload/w_${size},h_${size},c_fill,q_auto,f_auto/`,
-  );
+  return url.replace('/image/upload/', `/image/upload/w_${size},h_${size},c_fill,q_auto,f_auto/`);
 }

@@ -1,7 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 function centerAspectCrop(mediaWidth, mediaHeight, aspect) {
@@ -50,11 +56,15 @@ async function getCroppedBlob(image, crop, fileName) {
   );
 
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const file = new File([blob], fileName, { type: 'image/jpeg' });
-      resolve({ file, url: URL.createObjectURL(blob) });
-    }, 'image/jpeg', 0.9);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], fileName, { type: 'image/jpeg' });
+        resolve({ file, url: URL.createObjectURL(blob) });
+      },
+      'image/jpeg',
+      0.9,
+    );
   });
 }
 
@@ -63,10 +73,13 @@ export function ImageCropDialog({ open, imageSrc, fileName, onConfirm, onCancel,
   const [completedCrop, setCompletedCrop] = useState();
   const imgRef = useRef(null);
 
-  const onImageLoad = useCallback((e) => {
-    const { width, height } = e.currentTarget;
-    setCrop(centerAspectCrop(width, height, aspect));
-  }, [aspect]);
+  const onImageLoad = useCallback(
+    (e) => {
+      const { width, height } = e.currentTarget;
+      setCrop(centerAspectCrop(width, height, aspect));
+    },
+    [aspect],
+  );
 
   const handleConfirm = async () => {
     if (!imgRef.current || !completedCrop) return;
@@ -102,11 +115,17 @@ export function ImageCropDialog({ open, imageSrc, fileName, onConfirm, onCancel,
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground text-center">Kéo để chọn vùng ảnh. Tỷ lệ 1:1.</p>
+        <p className="text-xs text-muted-foreground text-center">
+          Kéo để chọn vùng ảnh. Tỷ lệ 1:1.
+        </p>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onCancel}>Hủy</Button>
-          <Button type="button" onClick={handleConfirm}>Xác nhận</Button>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Hủy
+          </Button>
+          <Button type="button" onClick={handleConfirm}>
+            Xác nhận
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,4 @@
-import * as svc from "../services/academic-years.service.js";
+import * as svc from '../services/academic-years.service.js';
 
 export async function create(req, res) {
   const year = await svc.create(req.body);

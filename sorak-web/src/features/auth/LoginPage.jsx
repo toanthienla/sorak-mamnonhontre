@@ -66,8 +66,8 @@ export function LoginPage() {
     setAuth(payload.user);
     toast.success('Đăng nhập thành công');
     const role = payload.user.role;
-    if (role === 'PH') return navigate('/portal', { replace: true });
-    const destination = BGH_ONLY.includes(from) && role !== 'BGH' ? '/' : from;
+    if (role === 'PARENT') return navigate('/portal', { replace: true });
+    const destination = BGH_ONLY.includes(from) && role !== 'PRINCIPAL' ? '/' : from;
     navigate(destination, { replace: true });
   };
 
@@ -78,7 +78,11 @@ export function LoginPage() {
     try {
       const { data } = await apiClient.post('/auth/login', { email: email.trim(), password: pwd });
       finish(data?.data ?? data);
-    } catch { /* toast handled */ } finally { setSubmitting(false); }
+    } catch {
+      /* toast handled */
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const loginParent = async (e) => {
@@ -91,7 +95,11 @@ export function LoginPage() {
         password: parentPwd,
       });
       finish(data?.data ?? data);
-    } catch { /* toast handled */ } finally { setSubmitting(false); }
+    } catch {
+      /* toast handled */
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

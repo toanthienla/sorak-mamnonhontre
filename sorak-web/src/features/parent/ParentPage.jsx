@@ -29,7 +29,11 @@ export function ParentPage() {
   });
 
   const handleLogout = async () => {
-    try { await apiClient.post('/auth/logout'); } catch { /* ignore */ }
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      /* ignore */
+    }
     logout();
     toast.success('Đã đăng xuất');
     navigate('/login', { replace: true });
@@ -43,7 +47,7 @@ export function ParentPage() {
     );
   }
 
-  const sc = student?.student_classes?.[0];
+  const sc = student?.enrollments?.[0];
   const parents = student?.parents ?? [];
 
   return (
@@ -55,7 +59,9 @@ export function ParentPage() {
             <img src="/sorak-logo.png" alt="Sorak" className="h-8 w-8 object-contain" />
             <div>
               <div className="text-sm font-bold leading-tight text-gray-900">Sorak</div>
-              <div className="text-xs text-muted-foreground leading-tight">Trường Mầm non Hòn Tre</div>
+              <div className="text-xs text-muted-foreground leading-tight">
+                Trường Mầm non Hòn Tre
+              </div>
             </div>
           </div>
           <button
@@ -72,15 +78,22 @@ export function ParentPage() {
         {/* Student card */}
         <div className="bg-white rounded-2xl p-5 border shadow-sm">
           <div className="flex items-center gap-4">
-            {student?.photo_url
-              ? <img src={cloudinaryThumb(student.photo_url, 128)} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0 border" />
-              : <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 text-2xl font-bold text-gray-400">
-                  {student?.full_name?.split(' ').slice(-1)[0]?.[0] ?? '?'}
-                </div>
-            }
+            {student?.photo_url ? (
+              <img
+                src={cloudinaryThumb(student.photo_url, 128)}
+                alt=""
+                className="w-16 h-16 rounded-xl object-cover shrink-0 border"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 text-2xl font-bold text-gray-400">
+                {student?.full_name?.split(' ').slice(-1)[0]?.[0] ?? '?'}
+              </div>
+            )}
             <div className="min-w-0">
               <div className="text-lg font-bold text-gray-900 truncate">{student?.full_name}</div>
-              <div className="text-sm text-muted-foreground mt-0.5">{student?.student_id_card_number}</div>
+              <div className="text-sm text-muted-foreground mt-0.5">
+                {student?.student_id_card_number}
+              </div>
             </div>
           </div>
         </div>
@@ -88,13 +101,22 @@ export function ParentPage() {
         {/* Info */}
         <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b bg-gray-50">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Thông tin học sinh</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Thông tin học sinh
+            </span>
           </div>
           <div className="px-5 py-1">
             <InfoRow label="Lớp" value={sc?.class?.class_name} />
             <InfoRow label="Năm học" value={sc?.class?.school_year?.name} />
             <InfoRow label="Trạng thái" value={student?.student_status} />
-            <InfoRow label="Ngày sinh" value={student?.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString('vi-VN') : null} />
+            <InfoRow
+              label="Ngày sinh"
+              value={
+                student?.date_of_birth
+                  ? new Date(student.date_of_birth).toLocaleDateString('vi-VN')
+                  : null
+              }
+            />
             <InfoRow label="Giới tính" value={student?.gender} />
             <InfoRow label="Khối" value={student?.grade_level} />
             <InfoRow label="Dân tộc" value={student?.ethnicity} />
@@ -109,7 +131,9 @@ export function ParentPage() {
         {parents.length > 0 && (
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b bg-gray-50">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Phụ huynh</span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Phụ huynh
+              </span>
             </div>
             <div className="px-5 py-1">
               {parents.map((p, i) => (

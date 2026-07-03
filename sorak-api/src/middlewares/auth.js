@@ -8,8 +8,7 @@ const ACCESS_COOKIE = 'sorak_access';
 export function authMiddleware(req, res, next) {
   // Support both cookie (primary) and Bearer header (fallback for Swagger/tools)
   const token =
-    req.cookies?.[ACCESS_COOKIE] ||
-    req.headers.authorization?.replace('Bearer ', '').trim();
+    req.cookies?.[ACCESS_COOKIE] || req.headers.authorization?.replace('Bearer ', '').trim();
 
   if (!token) {
     return next(Unauthorized('Missing access token'));
