@@ -1,0 +1,37 @@
+import { Router } from 'express';
+import { asyncHandler } from '../utils/async-handler.js';
+import { validate } from '../middlewares/validate.js';
+import { authMiddleware } from '../middlewares/auth.js';
+import { requireRoles } from '../middlewares/roles.js';
+import { uploadXlsx } from '../middlewares/upload.js';
+import {
+  createHealthSchema,
+  updateHealthSchema,
+  queryHealthSchema,
+  historyQuerySchema,
+  curvesQuerySchema,
+  bulkHealthSchema,
+  byClassDateSchema,
+} from '../validators/health.schema.js';
+import * as ctrl from '../controllers/health-assessments.controller.js';
+
+const router = Router();
+router.use(authMiddleware, requireRoles('PRINCIPAL', 'TEACHER'));
+
+// Static routes BEFORE /:id
+router.get('/', validate(queryHealthSchema, 'query'), asyncHandler(ctrl.findAll));
+router.get('/history', validate(historyQuerySchema, 'query'), asyncHandler(ctrl.history));
+router.get('/who-curves', validate(curvesQuerySchema, 'query'), asyncHandler(ctrl.curves));
+router.get('/import/template', asyncHandler(ctrl.importTemplate));
+router.post('/import/preview', uploadXlsx.single('file'), asyncHandler(ctrl.previewImport));
+router.post('/import', uploadXlsx.single('file'), asyncHandler(ctrl.importExcel));
+router.get('/export/excel', asyncHandler(ctrl.exportExcel));
+router.get('/by-class-date', validate(byClassDateSchema, 'query'), asyncHandler(ctrl.byClassDate));
+router.post('/bulk', validate(bulkHealthSchema), asyncHandler(ctrl.bulkUpsert));
+
+router.post('/', validate(createHealthSchema), asyncHandler(ctrl.create));
+router.get('/:id', asyncHandler(ctrl.findOne));
+router.patch('/:id', validate(updateHealthSchema), asyncHandler(ctrl.update));
+router.delete('/:id', asyncHandler(ctrl.remove));
+
+export default router;
