@@ -7,14 +7,17 @@ const REFRESH_COOKIE = 'sorak_refresh';
 
 const cookieBase = (maxAge) => ({
   httpOnly: true,
-  secure: false,   // HTTP on VPS — no SSL
+  secure: false, // HTTP on VPS — no SSL
   sameSite: 'lax',
   maxAge,
 });
 
 function setAuthCookies(res, { accessToken, refreshToken }) {
   res.cookie(ACCESS_COOKIE, accessToken, { ...cookieBase(15 * 60 * 1000), path: '/' });
-  res.cookie(REFRESH_COOKIE, refreshToken, { ...cookieBase(7 * 24 * 60 * 60 * 1000), path: '/api/auth' });
+  res.cookie(REFRESH_COOKIE, refreshToken, {
+    ...cookieBase(7 * 24 * 60 * 60 * 1000),
+    path: '/api/auth',
+  });
 }
 
 function clearAuthCookies(res) {
@@ -29,10 +32,7 @@ export async function login(req, res) {
 }
 
 export async function parentLogin(req, res) {
-  const result = await authService.parentLogin(
-    req.body.student_id_card_number,
-    req.body.password,
-  );
+  const result = await authService.parentLogin(req.body.student_id_card_number, req.body.password);
   setAuthCookies(res, result);
   res.success({ user: result.user });
 }
@@ -55,7 +55,9 @@ export async function me(req, res) {
 }
 
 export async function changePassword(req, res) {
-  res.success(await authService.changePassword(req.user, req.body.old_password, req.body.new_password));
+  res.success(
+    await authService.changePassword(req.user, req.body.old_password, req.body.new_password),
+  );
 }
 
 export async function forgotPassword(req, res) {

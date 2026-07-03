@@ -1,0 +1,36 @@
+# compiled output
+/dist
+/node_modules
+/coverage
+
+# generated
+/generated
+/prisma/dbml
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# env
+.env
+.env.local
+.env.*.local
+
+# misc
+.eslintcache
+
+# docker volumes
+.data/

@@ -62,7 +62,11 @@ export function ForgotPasswordPage() {
       await apiClient.post('/auth/forgot-password', { email: email.trim() });
       toast.success('Đã gửi OTP qua email (nếu tồn tại)');
       setStep('reset');
-    } catch { /* toast */ } finally { setSubmitting(false); }
+    } catch {
+      /* toast */
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const submitReset = async (e) => {
@@ -77,12 +81,16 @@ export function ForgotPasswordPage() {
       });
       toast.success('Đặt lại mật khẩu thành công. Đăng nhập lại.');
       navigate('/login', { replace: true });
-    } catch { /* toast */ } finally { setSubmitting(false); }
+    } catch {
+      /* toast */
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="w-full">
-      {/* Logo — hiển thị trên mobile (AuthLayout ẩn logo ở mobile cho trang này) */}
+      {/* Logo — hiển thị trên mobile */}
       <div className="flex flex-col items-center mb-8 lg:hidden">
         <img src="/sorak-logo.png" alt="Sorak" className="h-12 w-12 object-contain mb-2" />
         <span className="text-2xl font-black" style={{ color: NAVY }}>
@@ -92,7 +100,9 @@ export function ForgotPasswordPage() {
 
       {step === 'email' ? (
         <>
-          <h2 className="text-2xl font-extrabold mb-1" style={{ color: NAVY }}>Quên mật khẩu</h2>
+          <h2 className="text-2xl font-extrabold mb-1" style={{ color: NAVY }}>
+            Quên mật khẩu
+          </h2>
           <p className="text-sm mb-8" style={{ color: '#7a7e92' }}>
             Nhập email tài khoản — chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu.
           </p>
@@ -106,18 +116,28 @@ export function ForgotPasswordPage() {
                 className={inputCls}
                 autoFocus
               />
-              <p className="text-xs" style={{ color: '#7a7e92' }}>Chỉ dành cho BGH / Giáo viên.</p>
+              <p className="text-xs" style={{ color: '#7a7e92' }}>
+                Chỉ dành cho BGH / Giáo viên.
+              </p>
             </Field>
             <button
               type="submit"
               disabled={submitting}
               className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-              style={{ background: NAVY, color: '#fff', boxShadow: '0 2px 12px rgba(26,40,69,0.18)' }}
+              style={{
+                background: NAVY,
+                color: '#fff',
+                boxShadow: '0 2px 12px rgba(26,40,69,0.18)',
+              }}
             >
               {submitting ? 'Đang gửi...' : 'Gửi mã OTP'}
             </button>
             <div className="text-center">
-              <Link to="/login" className="text-xs font-medium hover:underline" style={{ color: NAVY }}>
+              <Link
+                to="/login"
+                className="text-xs font-medium hover:underline"
+                style={{ color: NAVY }}
+              >
                 ← Quay lại đăng nhập
               </Link>
             </div>
@@ -125,10 +145,15 @@ export function ForgotPasswordPage() {
         </>
       ) : (
         <>
-          <h2 className="text-2xl font-extrabold mb-1" style={{ color: NAVY }}>Đặt lại mật khẩu</h2>
+          <h2 className="text-2xl font-extrabold mb-1" style={{ color: NAVY }}>
+            Đặt lại mật khẩu
+          </h2>
           <p className="text-sm mb-8" style={{ color: '#7a7e92' }}>
-            Mã OTP đã gửi tới <span className="font-semibold" style={{ color: NAVY }}>{email}</span>.
-            Hiệu lực <strong>10 phút</strong>.
+            Mã OTP đã gửi tới{' '}
+            <span className="font-semibold" style={{ color: NAVY }}>
+              {email}
+            </span>
+            . Hiệu lực <strong>10 phút</strong>.
           </p>
           <form onSubmit={submitReset} className="space-y-5">
             <Field label="Mã OTP (6 chữ số)">
@@ -143,24 +168,31 @@ export function ForgotPasswordPage() {
               />
             </Field>
             <Field label="Mật khẩu mới">
-              <PasswordInput
-                value={newPw}
-                onChange={(e) => setNewPw(e.target.value)}
-              />
-              <p className="text-xs" style={{ color: '#7a7e92' }}>Tối thiểu 6 ký tự.</p>
+              <PasswordInput value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+              <p className="text-xs" style={{ color: '#7a7e92' }}>
+                Tối thiểu 6 ký tự.
+              </p>
             </Field>
             <button
               type="submit"
               disabled={submitting || otp.length !== 6 || newPw.length < 6}
               className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-              style={{ background: NAVY, color: '#fff', boxShadow: '0 2px 12px rgba(26,40,69,0.18)' }}
+              style={{
+                background: NAVY,
+                color: '#fff',
+                boxShadow: '0 2px 12px rgba(26,40,69,0.18)',
+              }}
             >
               {submitting ? 'Đang đặt lại...' : 'Đặt lại mật khẩu'}
             </button>
             <div className="flex justify-between text-xs">
               <button
                 type="button"
-                onClick={() => { setStep('email'); setOtp(''); setNewPw(''); }}
+                onClick={() => {
+                  setStep('email');
+                  setOtp('');
+                  setNewPw('');
+                }}
                 className="font-medium hover:underline"
                 style={{ color: '#7a7e92' }}
               >

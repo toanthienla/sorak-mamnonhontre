@@ -29,6 +29,9 @@ model Account {
     created_students Student[] @relation("StudentCreatedBy")
     updated_students Student[] @relation("StudentUpdatedBy")
 
+    requested_transfers ClassTransferRequest[] @relation("TransferRequestedBy")
+    reviewed_transfers  ClassTransferRequest[] @relation("TransferReviewedBy")
+
     @@index([deleted_at])
     @@map("accounts")
 }
@@ -68,9 +71,15 @@ model SchoolYear {
     status                   String    @default("inactive") @db.VarChar(20)
     deleted_at               DateTime?
 
-    semesters                Semester[]
-    classes                  Class[]
-    student_year_enrollments StudentYearEnrollment[]
+    semesters Semester[]
+    classes   Class[]
+    enrollments StudentEnrollment[]
+
+    class_transfer_requests ClassTransferRequest[]
+    outgoing_transfers      OutgoingTransfer[]
+    incoming_transfers      IncomingTransfer[]
+    health_assessments      HealthAssessment[]
+    nutrition_assessments   NutritionAssessment[]
 
     @@map("school_years")
 }
@@ -83,6 +92,8 @@ model Semester {
     end_date        DateTime
 
     school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+
+    class_transfer_requests ClassTransferRequest[]
 
     @@unique([school_year_id, semester_number])
     @@map("semesters")
@@ -97,9 +108,16 @@ model Class {
     created_at     DateTime  @default(now())
     deleted_at     DateTime?
 
-    school_year     SchoolYear     @relation(fields: [school_year_id], references: [school_year_id])
+    school_year     SchoolYear          @relation(fields: [school_year_id], references: [school_year_id])
     teacher_classes TeacherClass[]
-    student_classes StudentClass[]
+    enrollments     StudentEnrollment[]
+
+    transfers_from     ClassTransferRequest[] @relation("TransferFromClass")
+    transfers_to       ClassTransferRequest[] @relation("TransferToClass")
+    outgoing_transfers OutgoingTransfer[]
+    incoming_transfers IncomingTransfer[]
+    health_assessments HealthAssessment[]
+    nutrition_assessments NutritionAssessment[]
 
     @@index([school_year_id])
     @@index([deleted_at])
@@ -159,9 +177,14 @@ model Student {
     created_by_account Account?  @relation("StudentCreatedBy", fields: [created_by], references: [account_id])
     updated_by_account Account?  @relation("StudentUpdatedBy", fields: [updated_by], references: [account_id])
 
-    parents                  Parent[]
-    student_classes          StudentClass[]
-    student_year_enrollments StudentYearEnrollment[]
+    parents     Parent[]
+    enrollments StudentEnrollment[]
+
+    class_transfer_requests ClassTransferRequest[]
+    outgoing_transfers      OutgoingTransfer[]
+    incoming_transfers      IncomingTransfer[]
+    health_assessments      HealthAssessment[]
+    nutrition_assessments   NutritionAssessment[]
 
     @@index([deleted_at])
     @@index([full_name])
@@ -186,31 +209,170 @@ model Parent {
 
 // ─── NHÓM 5: Phân lớp ───────────────────────────────────────────────────────
 
-model StudentClass {
-    student_class_id Int       @id @default(autoincrement())
-    student_id       Int
-    class_id         Int
-    enrolled_date    DateTime  @default(now())
-    left_date        DateTime?
-    student_status   String    @default("Đang học") @db.VarChar(50)
+model StudentEnrollment {
+    enrollment_id  Int       @id @default(autoincrement())
+    student_id     Int
+    school_year_id Int       // always set — source of truth for year
+    class_id       Int?      // nullable — enrolled in year but no class yet
+    grade_level    String?   @db.VarChar(30)
+    enrolled_date  DateTime  @default(now())
+    left_date      DateTime?
+    student_status String    @default("Đang học") @db.VarChar(50)
 
-    student Student @relation(fields: [student_id], references: [student_id])
-    class   Class   @relation(fields: [class_id], references: [class_id])
+    student     Student    @relation(fields: [student_id], references: [student_id])
+    class       Class?     @relation(fields: [class_id], references: [class_id])
+    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
 
-    @@unique([student_id, class_id])
-    @@map("student_classes")
+    // Unique enforced via raw SQL with NULLS NOT DISTINCT (PG15+) — see migration
+    @@index([student_id, school_year_id])
+    @@index([class_id])
+    @@map("student_enrollments")
 }
 
-model StudentYearEnrollment {
-    id             Int      @id @default(autoincrement())
+// ─── NHÓM 6: Chuyển lớp / Chuyển trường ─────────────────────────────────────
+
+model ClassTransferRequest {
+    request_id     Int       @id @default(autoincrement())
     student_id     Int
     school_year_id Int
-    grade_level    String?  @db.VarChar(30)
-    enrolled_at    DateTime @default(now())
+    semester_id    Int? // resolve từ effective_date — phục vụ giới hạn 2 lần/học kỳ (BR-065)
+    from_class_id  Int
+    to_class_id    Int
+    reason         String    @db.VarChar(500)
+    effective_date DateTime
+    status         String    @default("Pending") @db.VarChar(20) // Pending | Approved | Rejected | Cancelled
+    requested_by   Int
+    reviewed_by    Int?
+    review_note    String?   @db.VarChar(500)
+    reviewed_at    DateTime?
+    applied_at     DateTime? // null = chưa đổi lớp; cron set khi áp dụng (BR-071)
+    created_at     DateTime  @default(now())
+    updated_at     DateTime  @updatedAt
 
     student     Student    @relation(fields: [student_id], references: [student_id])
     school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+    semester    Semester?  @relation(fields: [semester_id], references: [semester_id])
+    from_class  Class      @relation("TransferFromClass", fields: [from_class_id], references: [class_id])
+    to_class    Class      @relation("TransferToClass", fields: [to_class_id], references: [class_id])
+    requester   Account    @relation("TransferRequestedBy", fields: [requested_by], references: [account_id])
+    reviewer    Account?   @relation("TransferReviewedBy", fields: [reviewed_by], references: [account_id])
 
-    @@unique([student_id, school_year_id])
-    @@map("student_year_enrollments")
+    @@index([student_id])
+    @@index([school_year_id])
+    @@index([status])
+    @@map("class_transfer_requests")
+}
+
+model OutgoingTransfer {
+    transfer_id        Int       @id @default(autoincrement())
+    student_id         Int
+    school_year_id     Int
+    class_id           Int?
+    destination_school String    @db.VarChar(255)
+    transfer_date      DateTime
+    reason             String?   @db.VarChar(500)
+    note               String?   @db.VarChar(500)
+    status             String    @default("Recorded") @db.VarChar(20) // Recorded | Cancelled
+    cancel_reason      String?   @db.VarChar(500)
+    created_by         Int?
+    updated_by         Int?
+    created_at         DateTime  @default(now())
+    updated_at         DateTime  @updatedAt
+    deleted_at         DateTime?
+
+    student     Student    @relation(fields: [student_id], references: [student_id])
+    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+    class       Class?     @relation(fields: [class_id], references: [class_id])
+
+    @@index([student_id])
+    @@index([school_year_id])
+    @@index([deleted_at])
+    @@map("outgoing_transfers")
+}
+
+model IncomingTransfer {
+    transfer_id     Int       @id @default(autoincrement())
+    student_id      Int
+    school_year_id  Int
+    class_id        Int?
+    previous_school String    @db.VarChar(255)
+    transfer_date   DateTime
+    reason          String?   @db.VarChar(500)
+    note            String?   @db.VarChar(500)
+    status          String    @default("Recorded") @db.VarChar(20) // Recorded | Cancelled
+    cancel_reason   String?   @db.VarChar(500)
+    created_by      Int?
+    updated_by      Int?
+    created_at      DateTime  @default(now())
+    updated_at      DateTime  @updatedAt
+    deleted_at      DateTime?
+
+    student     Student    @relation(fields: [student_id], references: [student_id])
+    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+    class       Class?     @relation(fields: [class_id], references: [class_id])
+
+    @@index([student_id])
+    @@index([school_year_id])
+    @@index([deleted_at])
+    @@map("incoming_transfers")
+}
+
+// ─── NHÓM 7: Sức khỏe & Dinh dưỡng ──────────────────────────────────────────
+
+model HealthAssessment {
+    assessment_id   Int      @id @default(autoincrement())
+    student_id      Int
+    school_year_id  Int
+    class_id        Int? // lớp tại thời điểm đánh giá (BR-105)
+    assessment_date DateTime
+    height_cm       Float? // nullable — bản ghi rỗng tạo từ import dinh dưỡng (BR-138)
+    weight_kg       Float?
+    bmi             Float? // hệ thống tính, không nhập tay (BR-097/098)
+    bmi_z           Float? // Z-score WHO
+    height_z        Float?
+    weight_z        Float?
+    bmi_status      String?  @db.VarChar(50) // phân loại tiếng Việt (BR-110)
+    height_status   String?  @db.VarChar(50)
+    weight_status   String?  @db.VarChar(50)
+    note            String?  @db.VarChar(500)
+    created_by      Int?
+    updated_by      Int?
+    created_at      DateTime @default(now())
+    updated_at      DateTime @updatedAt
+
+    student     Student    @relation(fields: [student_id], references: [student_id])
+    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+    class       Class?     @relation(fields: [class_id], references: [class_id])
+
+    @@unique([student_id, assessment_date]) // BR-090
+    @@index([school_year_id])
+    @@index([class_id])
+    @@map("health_assessments")
+}
+
+// Đánh giá nuôi dưỡng — standalone, theo từng giai đoạn (đầu năm → cuối năm).
+// Không gắn FK với HealthAssessment; giáo viên xem biểu đồ BMI để tham khảo khi đánh giá.
+model NutritionAssessment {
+    nutrition_id        Int      @id @default(autoincrement())
+    student_id          Int
+    school_year_id      Int
+    class_id            Int?
+    period              String   @db.VarChar(20) // dau_nam | giua_ky_1 | cuoi_ky_1 | dau_ky_2 | giua_ky_2 | cuoi_nam
+    weight_channel      String?  @db.VarChar(50) // null=bình thường | 'Suy dinh dưỡng thể nhẹ cân' | 'Cân nặng cao hơn tuổi'
+    is_stunting         Boolean  @default(false) // SDD thể thấp còi
+    is_severe_stunting  Boolean  @default(false) // SDD thể còi cọc
+    is_obese            Boolean  @default(false) // trẻ bị béo phì
+    note                String?  @db.VarChar(500)
+    created_by          Int?
+    updated_by          Int?
+    created_at          DateTime @default(now())
+    updated_at          DateTime @updatedAt
+
+    student     Student    @relation(fields: [student_id], references: [student_id])
+    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+    class       Class?     @relation(fields: [class_id], references: [class_id])
+
+    @@unique([student_id, school_year_id, period]) // 1 bản ghi / học sinh / giai đoạn
+    @@index([school_year_id, class_id, period])
+    @@map("nutrition_assessments")
 }

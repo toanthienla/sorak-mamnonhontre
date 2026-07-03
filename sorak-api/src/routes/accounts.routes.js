@@ -9,12 +9,13 @@ import {
   changeRoleSchema,
   assignRoleSchema,
   setActiveSchema,
+  setPasswordSchema,
   queryAccountSchema,
 } from '../validators/accounts.schema.js';
 import * as ctrl from '../controllers/accounts.controller.js';
 
 const router = Router();
-router.use(authMiddleware, requireRoles('BGH'));
+router.use(authMiddleware, requireRoles('PRINCIPAL'));
 
 router.post('/', validate(createAccountSchema), asyncHandler(ctrl.create));
 router.get('/', validate(queryAccountSchema, 'query'), asyncHandler(ctrl.findAll));
@@ -24,6 +25,7 @@ router.patch('/:id', validate(updateAccountSchema), asyncHandler(ctrl.update));
 router.patch('/:id/role', validate(changeRoleSchema), asyncHandler(ctrl.changeRole));
 router.post('/:id/assign-role', validate(assignRoleSchema), asyncHandler(ctrl.assignRole));
 router.patch('/:id/active', validate(setActiveSchema), asyncHandler(ctrl.setActive));
+router.patch('/:id/password', validate(setPasswordSchema), asyncHandler(ctrl.setPassword));
 router.delete('/:id', asyncHandler(ctrl.softDelete));
 router.patch('/:id/restore', asyncHandler(ctrl.restore));
 

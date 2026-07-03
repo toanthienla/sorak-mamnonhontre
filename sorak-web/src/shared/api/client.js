@@ -14,7 +14,13 @@ export const apiClient = axios.create({
 
 let refreshingPromise = null;
 
-const NO_REFRESH = ['/auth/login', '/auth/parent-login', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password'];
+const NO_REFRESH = [
+  '/auth/login',
+  '/auth/parent-login',
+  '/auth/refresh',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+];
 
 apiClient.interceptors.response.use(
   (res) => res,
@@ -29,7 +35,9 @@ apiClient.interceptors.response.use(
       try {
         refreshingPromise ??= axios
           .post(`${baseURL}/auth/refresh`, {}, { withCredentials: true })
-          .finally(() => { refreshingPromise = null; });
+          .finally(() => {
+            refreshingPromise = null;
+          });
         await refreshingPromise;
         // New accessToken cookie set by server — just retry original
         return apiClient.request(original);

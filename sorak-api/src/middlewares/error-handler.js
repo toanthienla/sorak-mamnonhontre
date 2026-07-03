@@ -4,13 +4,20 @@ import logger from '../utils/logger.js';
 
 const statusToCode = (status) => {
   switch (status) {
-    case 400: return 'VALIDATION_ERROR';
-    case 401: return 'UNAUTHORIZED';
-    case 403: return 'FORBIDDEN';
-    case 404: return 'NOT_FOUND';
-    case 409: return 'CONFLICT';
-    case 429: return 'TOO_MANY_REQUESTS';
-    default:  return 'INTERNAL_ERROR';
+    case 400:
+      return 'VALIDATION_ERROR';
+    case 401:
+      return 'UNAUTHORIZED';
+    case 403:
+      return 'FORBIDDEN';
+    case 404:
+      return 'NOT_FOUND';
+    case 409:
+      return 'CONFLICT';
+    case 429:
+      return 'TOO_MANY_REQUESTS';
+    default:
+      return 'INTERNAL_ERROR';
   }
 };
 
@@ -46,7 +53,10 @@ export function errorHandler(err, req, res, _next) {
   }
 
   if (status >= 500) {
-    logger.error({ err, traceId: req.traceId, method: req.method, url: req.url }, 'Unhandled error');
+    logger.error(
+      { err, traceId: req.traceId, method: req.method, url: req.url },
+      'Unhandled error',
+    );
   }
 
   res.status(status).json({

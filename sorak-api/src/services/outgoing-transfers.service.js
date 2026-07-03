@@ -1,10 +1,10 @@
-// Chuyển trường đis — UC-50..55
+// Outgoing School Transfers — UC-50..55
 // BR-073..078, BR-085, BR-086
 import ExcelJS from 'exceljs';
 import prisma from '../config/prisma.js';
 import { paginate } from '../utils/paginate.js';
 import { searchIds } from '../utils/search.js';
-import { BadRequest, Conflict, NotFound } from '../utils/http-error.js';
+import { BadRequest, Conflict, Forbidden, NotFound } from '../utils/http-error.js';
 import logger from '../utils/logger.js';
 
 const TRANSFERRED_OUT = 'Đã chuyển trường';
@@ -140,12 +140,16 @@ export async function findAll(query, user) {
 }
 
 // ─── Details (UC-52) ─────────────────────────────────────────────────────────
-export async function findOne(id) {
+export async function findOne(id, user) {
   const record = await prisma.outgoingTransfer.findFirst({
     where: { transfer_id: id, deleted_at: null },
     include: TRANSFER_INCLUDE,
   });
   if (!record) throw NotFound('Hồ sơ chuyển đi không tồn tại');
+  // Teachers may only view records they created
+  if (user?.role === 'TEACHER' && record.created_by !== user.sub) {
+    throw Forbidden('Không có quyền xem hồ sơ này');
+  }
   return record;
 }
 

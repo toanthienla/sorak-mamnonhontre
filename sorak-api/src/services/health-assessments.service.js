@@ -236,6 +236,20 @@ export async function history(query, user) {
   });
   if (!student) throw NotFound('Học sinh không tồn tại');
 
+  // Teachers may only view a student currently enrolled in one of their classes
+  if (user.role === 'TEACHER') {
+    const enrolled = await prisma.studentEnrollment.findFirst({
+      where: {
+        student_id: studentId,
+        left_date: null,
+        class: {
+          teacher_classes: { some: { teacher: { account_id: user.sub }, removed_at: null } },
+        },
+      },
+    });
+    if (!enrolled) throw Forbidden('Không có quyền xem học sinh này');
+  }
+
   const where = { student_id: studentId };
   if (query.school_year_id) where.school_year_id = Number(query.school_year_id);
 
@@ -245,17 +259,6 @@ export async function history(query, user) {
     orderBy: { assessment_date: 'asc' },
   });
 
-  if (user.role === 'TEACHER') {
-    const myClassIds = await getTeacherClassIds(user.sub);
-    const allowed = records.some((r) => r.class_id && myClassIds.includes(r.class_id));
-    // Allow if any record is in teacher's class OR student currently enrolled in one
-    if (!allowed) {
-      const enrolled = await prisma.studentEnrollment.findFirst({
-        where: { student_id: studentId, left_date: null, class_id: { in: myClassIds } },
-      });
-      if (!enrolled) throw Forbidden('Không có quyền xem học sinh này');
-    }
-  }
   return { student, records };
 }
 

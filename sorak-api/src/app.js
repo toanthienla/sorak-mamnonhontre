@@ -31,8 +31,7 @@ export function createApp() {
         if (res.statusCode >= 400) return 'warn';
         return 'info';
       },
-      customSuccessMessage: (req, res) =>
-        `${req.method} ${req.url} ${res.statusCode}`,
+      customSuccessMessage: (req, res) => `${req.method} ${req.url} ${res.statusCode}`,
       customErrorMessage: (req, res, err) =>
         `${req.method} ${req.url} ${res.statusCode} ${err.message}`,
       // one-line: drop full req/res object dump
@@ -44,10 +43,14 @@ export function createApp() {
   );
 
   // Swagger UI — mounted BEFORE helmet so no CSP/HSTS interference
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: 'Sorak API Docs',
-    customCss: '.swagger-ui .topbar { display: none }',
-  }));
+  app.use(
+    '/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+      customSiteTitle: 'Sorak API Docs',
+      customCss: '.swagger-ui .topbar { display: none }',
+    }),
+  );
   app.get('/docs.json', (req, res) => res.json(swaggerSpec));
 
   app.use(helmet());

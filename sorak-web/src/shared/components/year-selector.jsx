@@ -45,9 +45,7 @@ export function YearSelector() {
     >
       <SelectTrigger className="w-full h-9 text-sm gap-2">
         <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
-        <SelectValue placeholder="Chọn năm học">
-          {selected?.name ?? 'Chọn năm học'}
-        </SelectValue>
+        <SelectValue placeholder="Chọn năm học">{selected?.name ?? 'Chọn năm học'}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {years?.map((y) => (

@@ -9,9 +9,9 @@ if (env.cloudinary.cloudName && env.cloudinary.apiKey && env.cloudinary.apiSecre
     api_key: env.cloudinary.apiKey,
     api_secret: env.cloudinary.apiSecret,
   });
-  logger.info(`Cloudinary ready — cloud: ${env.cloudinary.cloudName}`);
+  logger.info(`Cloudinary ready â€” cloud: ${env.cloudinary.cloudName}`);
 } else {
-  logger.warn('Cloudinary credentials not set — storage disabled');
+  logger.warn('Cloudinary credentials not set â€” storage disabled');
 }
 
 function assertConfig() {
@@ -27,7 +27,7 @@ function bufferToStream(buffer) {
 
 /**
  * Upload image buffer to Cloudinary.
- * key example: "students/184/photo_1748591234"  (no extension — Cloudinary manages that)
+ * key example: "students/184/photo_1748591234"  (no extension â€” Cloudinary manages that)
  * Returns { key: public_id, url: secure_url }
  */
 export async function upload(key, body, _contentType) {
@@ -57,7 +57,7 @@ export async function deleteObject(key) {
 }
 
 /**
- * Cloudinary URLs are already public — return as-is.
+ * Cloudinary URLs are already public â€” return as-is.
  */
 export async function presign(key) {
   return key;

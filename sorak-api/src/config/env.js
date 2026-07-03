@@ -12,14 +12,16 @@ const schema = Joi.object({
   JWT_ACCESS_TTL: Joi.string().default('15m'),
   JWT_REFRESH_TTL: Joi.string().default('7d'),
 
-  SEED_ADMIN_EMAIL: Joi.string().email({ tlds: { allow: false } }).default('admin@sorak.local'),
+  SEED_ADMIN_EMAIL: Joi.string()
+    .email({ tlds: { allow: false } })
+    .default('admin@sorak.local'),
   SEED_ADMIN_PHONE: Joi.string().default('0900000001'),
 
   CLOUDINARY_CLOUD_NAME: Joi.string().optional(),
   CLOUDINARY_API_KEY: Joi.string().optional(),
   CLOUDINARY_API_SECRET: Joi.string().optional(),
 
-  // SMTP for forgot-password OTP email (BGH/GV). If unset → OTP logged to console.
+  // SMTP for forgot-password OTP email (BGH/GV). If unset â†’ OTP logged to console.
   SMTP_HOST: Joi.string().optional(),
   SMTP_PORT: Joi.number().default(587),
   SMTP_USER: Joi.string().optional(),
@@ -38,7 +40,9 @@ export const env = {
   nodeEnv: value.NODE_ENV,
   port: Number(value.PORT),
   isProd: value.NODE_ENV === 'production',
-  corsOrigins: value.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
+  corsOrigins: value.CORS_ORIGINS.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
 
   databaseUrl: value.DATABASE_URL,
 

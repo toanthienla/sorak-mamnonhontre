@@ -11,7 +11,10 @@ export const createAcademicYearSchema = Joi.object({
 });
 
 export const updateAcademicYearSchema = Joi.object({
-  name: Joi.string().max(20).pattern(/^\d{4}-\d{4}$/).optional(),
+  name: Joi.string()
+    .max(20)
+    .pattern(/^\d{4}-\d{4}$/)
+    .optional(),
   start_date: Joi.string().isoDate().optional(),
   end_date: Joi.string().isoDate().optional(),
   status: Joi.string().valid('active', 'inactive').optional(),

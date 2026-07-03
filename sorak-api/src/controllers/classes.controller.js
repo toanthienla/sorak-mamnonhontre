@@ -6,7 +6,7 @@ export async function create(req, res) {
 }
 
 export async function findAll(req, res) {
-  res.paginated(await svc.findAll(req.query));
+  res.paginated(await svc.findAll(req.query, req.user));
 }
 
 export async function findArchived(req, res) {
@@ -35,6 +35,21 @@ export async function addTeacher(req, res) {
 
 export async function removeTeacher(req, res) {
   res.success(await svc.removeTeacher(Number(req.params.id), Number(req.params.teacherId)));
+}
+
+export async function importTemplate(req, res) {
+  const buf = await svc.importTemplate();
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+  res.setHeader('Content-Disposition', 'attachment; filename="mau_nhap_lop.xlsx"');
+  res.send(buf);
+}
+
+export async function previewImport(req, res) {
+  if (!req.file) throw BadRequest('Thiếu file');
+  res.success(await svc.previewImport(req.file.buffer));
 }
 
 export async function importExcel(req, res) {

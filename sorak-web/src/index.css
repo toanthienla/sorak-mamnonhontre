@@ -5,12 +5,12 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 220 45% 19%;          /* #1A2845 */
+    --foreground: 220 45% 19%; /* #1A2845 */
     --card: 0 0% 100%;
     --card-foreground: 220 45% 19%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 45% 19%;
-    --primary: 38 91% 55%;             /* amber #f5a623 */
+    --primary: 38 91% 55%; /* amber #f5a623 */
     --primary-foreground: 0 0% 100%;
     --secondary: 38 80% 94%;
     --secondary-foreground: 38 60% 20%;
@@ -49,8 +49,12 @@
 }
 
 @layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased; }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
 
   input:-webkit-autofill,
   input:-webkit-autofill:hover,

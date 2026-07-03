@@ -1,4 +1,4 @@
-// Chuyển lớp Requests — UC-46..49
+// Class Transfer Requests — UC-46..49
 // BR-057..072: teacher requests within own class, same year + grade, max 2/semester,
 // approve/reject by PRINCIPAL, applied on effective date (cron)
 import prisma from '../config/prisma.js';

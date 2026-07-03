@@ -26,7 +26,7 @@ const Forbidden = () => (
 
 function ParentGuard({ children }) {
   const role = useAuthStore((s) => s.user?.role);
-  if (role === 'PH') return <Navigate to="/portal" replace />;
+  if (role === 'PARENT') return <Navigate to="/portal" replace />;
   return children;
 }
 
@@ -34,7 +34,7 @@ function ParentGuard({ children }) {
 function PortalRoute() {
   const { user } = useAuthStore();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'PH') return <Navigate to="/" replace />;
+  if (user.role !== 'PARENT') return <Navigate to="/" replace />;
   return <ParentPage />;
 }
 
@@ -61,12 +61,22 @@ export function AppRouter() {
         }
       >
         <Route index element={<DashboardPage />} />
-        <Route path="/accounts" element={
-          <RoleGuard roles={['BGH']}><AccountsPage /></RoleGuard>
-        } />
-        <Route path="/teachers" element={
-          <RoleGuard roles={['BGH']}><TeachersPage /></RoleGuard>
-        } />
+        <Route
+          path="/accounts"
+          element={
+            <RoleGuard roles={['PRINCIPAL']}>
+              <AccountsPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/teachers"
+          element={
+            <RoleGuard roles={['PRINCIPAL']}>
+              <TeachersPage />
+            </RoleGuard>
+          }
+        />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/students" element={<StudentsPage />} />
         <Route path="/transfers" element={<TransfersPage />} />
