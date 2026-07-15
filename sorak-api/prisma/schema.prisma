@@ -2,377 +2,1039 @@
 // accounts = auth only | teachers = GV/BGH profile | students = profile + linked account
 
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ─── NHÓM 1: Tài khoản & Phân quyền ─────────────────────────────────────────
 
 model Account {
-    account_id     Int       @id @default(autoincrement())
-    role           String    @db.VarChar(20) // BGH | GV | PH
-    password_hash  String    @db.VarChar(255)
-    is_active      Boolean   @default(true)
-    otp_code       String?   @db.VarChar(10)
-    otp_expires_at DateTime?
-    deleted_at     DateTime?
-    created_at     DateTime  @default(now())
-    updated_at     DateTime  @updatedAt
+  account_id     Int       @id @default(autoincrement())
+  role           String    @db.VarChar(20) // BGH | GV | PH
+  password_hash  String    @db.VarChar(255)
+  is_active      Boolean   @default(true)
+  otp_code       String?   @db.VarChar(10)
+  otp_expires_at DateTime?
+  deleted_at     DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
 
-    teacher Teacher?
-    student Student?
+  teacher Teacher?
+  student Student?
 
-    created_students Student[] @relation("StudentCreatedBy")
-    updated_students Student[] @relation("StudentUpdatedBy")
+  created_students Student[] @relation("StudentCreatedBy")
+  updated_students Student[] @relation("StudentUpdatedBy")
 
-    requested_transfers ClassTransferRequest[] @relation("TransferRequestedBy")
-    reviewed_transfers  ClassTransferRequest[] @relation("TransferReviewedBy")
+  requested_transfers ClassTransferRequest[] @relation("TransferRequestedBy")
+  reviewed_transfers  ClassTransferRequest[] @relation("TransferReviewedBy")
 
-    @@index([deleted_at])
-    @@map("accounts")
+  assessment_content_requests            AssessmentContentAdditionRequest[] @relation("AssessmentContentRequestRequester")
+  reviewed_assessment_content_requests   AssessmentContentAdditionRequest[] @relation("AssessmentContentRequestReviewer")
+  cancelled_assessment_content_requests  AssessmentContentAdditionRequest[] @relation("AssessmentContentRequestCanceller")
+  created_academic_year_timetables       AcademicYearTimetable[]            @relation("AcademicYearTimetableCreatedBy")
+  updated_academic_year_timetables       AcademicYearTimetable[]            @relation("AcademicYearTimetableUpdatedBy")
+  locked_academic_year_timetables        AcademicYearTimetable[]            @relation("AcademicYearTimetableLockedBy")
+  unlocked_academic_year_timetables      AcademicYearTimetable[]            @relation("AcademicYearTimetableUnlockedBy")
+  created_monthly_theme_plans            MonthlyThemePlan[]                 @relation("MonthlyThemePlanCreatedBy")
+  updated_monthly_theme_plans            MonthlyThemePlan[]                 @relation("MonthlyThemePlanUpdatedBy")
+  ready_monthly_theme_plans              MonthlyThemePlan[]                 @relation("MonthlyThemePlanReadyBy")
+  created_weekly_development_plans       WeeklyDevelopmentPlan[]            @relation("WeeklyDevelopmentPlanCreatedBy")
+  updated_weekly_development_plans       WeeklyDevelopmentPlan[]            @relation("WeeklyDevelopmentPlanUpdatedBy")
+  ready_weekly_development_plans         WeeklyDevelopmentPlan[]            @relation("WeeklyDevelopmentPlanReadyBy")
+  assessed_daily_development_assessments DailyDevelopmentAssessment[]       @relation("DailyDevelopmentAssessmentAssessedBy")
+  updated_daily_development_assessments  DailyDevelopmentAssessment[]       @relation("DailyDevelopmentAssessmentUpdatedBy")
+  created_monthly_development_reports    MonthlyDevelopmentReport[]         @relation("MonthlyDevelopmentReportCreatedBy")
+  updated_monthly_development_reports    MonthlyDevelopmentReport[]         @relation("MonthlyDevelopmentReportUpdatedBy")
+  ready_monthly_development_reports      MonthlyDevelopmentReport[]         @relation("MonthlyDevelopmentReportReadyBy")
+  created_academic_year_development_reports AcademicYearDevelopmentReport[] @relation("AcademicYearDevelopmentReportCreatedBy")
+  updated_academic_year_development_reports AcademicYearDevelopmentReport[] @relation("AcademicYearDevelopmentReportUpdatedBy")
+  ready_academic_year_development_reports   AcademicYearDevelopmentReport[] @relation("AcademicYearDevelopmentReportReadyBy")
+
+  @@index([deleted_at])
+  @@map("accounts")
 }
 
 model Teacher {
-    teacher_id      Int       @id @default(autoincrement())
-    account_id      Int?      @unique
-    full_name       String    @db.VarChar(150)
-    email           String    @unique @db.VarChar(150) // login identifier BGH/GV
-    phone           String?   @db.VarChar(20)
-    gender          String?   @db.VarChar(10)
-    date_of_birth   DateTime?
-    address         String?   @db.VarChar(500)
-    position        String?   @db.VarChar(100) // Giáo viên | Hiệu trưởng | Hiệu phó | Kế toán...
-    work_start_date DateTime?
-    qualification   String?   @db.VarChar(255)
-    work_status     String    @default("Đang làm việc") @db.VarChar(50)
-    deleted_at      DateTime?
-    created_at      DateTime  @default(now())
-    updated_at      DateTime  @updatedAt
+  teacher_id      Int       @id @default(autoincrement())
+  account_id      Int?      @unique
+  full_name       String    @db.VarChar(150)
+  email           String    @unique @db.VarChar(150) // login identifier BGH/GV
+  phone           String?   @db.VarChar(20)
+  gender          String?   @db.VarChar(10)
+  date_of_birth   DateTime?
+  address         String?   @db.VarChar(500)
+  position        String?   @db.VarChar(100) // Giáo viên | Hiệu trưởng | Hiệu phó | Kế toán...
+  work_start_date DateTime?
+  qualification   String?   @db.VarChar(255)
+  work_status     String    @default("Đang làm việc") @db.VarChar(50)
+  deleted_at      DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
 
-    account         Account?       @relation(fields: [account_id], references: [account_id])
-    teacher_classes TeacherClass[]
+  account                     Account?                           @relation(fields: [account_id], references: [account_id])
+  teacher_classes             TeacherClass[]
+  assessment_content_requests AssessmentContentAdditionRequest[]
 
-    @@index([deleted_at])
-    @@index([email])
-    @@map("teachers")
+  @@index([deleted_at])
+  @@index([email])
+  @@map("teachers")
 }
 
 // ─── NHÓM 2: Cấu trúc trường ────────────────────────────────────────────────
 
 model SchoolYear {
-    school_year_id           Int       @id @default(autoincrement())
-    name                     String    @unique @db.VarChar(20)
-    start_date               DateTime
-    end_date                 DateTime
-    status                   String    @default("inactive") @db.VarChar(20)
-    deleted_at               DateTime?
+  school_year_id Int       @id @default(autoincrement())
+  name           String    @unique @db.VarChar(20)
+  start_date     DateTime
+  end_date       DateTime
+  status         String    @default("inactive") @db.VarChar(20)
+  deleted_at     DateTime?
 
-    semesters Semester[]
-    classes   Class[]
-    enrollments StudentEnrollment[]
+  semesters   Semester[]
+  classes     Class[]
+  enrollments StudentEnrollment[]
 
-    class_transfer_requests ClassTransferRequest[]
-    outgoing_transfers      OutgoingTransfer[]
-    incoming_transfers      IncomingTransfer[]
-    health_assessments      HealthAssessment[]
-    nutrition_assessments   NutritionAssessment[]
+  class_transfer_requests       ClassTransferRequest[]
+  outgoing_transfers            OutgoingTransfer[]
+  incoming_transfers            IncomingTransfer[]
+  health_assessments            HealthAssessment[]
+  nutrition_assessments         NutritionAssessment[]
+  academic_year_timetables      AcademicYearTimetable[]
+  monthly_theme_plans           MonthlyThemePlan[]
+  weekly_development_plans      WeeklyDevelopmentPlan[]
+  daily_development_assessments DailyDevelopmentAssessment[]
+  monthly_development_reports   MonthlyDevelopmentReport[]
+  academic_year_development_reports AcademicYearDevelopmentReport[]
 
-    @@map("school_years")
+  @@map("school_years")
 }
 
 model Semester {
-    semester_id     Int      @id @default(autoincrement())
-    school_year_id  Int
-    semester_number Int
-    start_date      DateTime
-    end_date        DateTime
+  semester_id     Int      @id @default(autoincrement())
+  school_year_id  Int
+  semester_number Int
+  start_date      DateTime
+  end_date        DateTime
 
-    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+  school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
 
-    class_transfer_requests ClassTransferRequest[]
+  class_transfer_requests ClassTransferRequest[]
 
-    @@unique([school_year_id, semester_number])
-    @@map("semesters")
+  @@unique([school_year_id, semester_number])
+  @@map("semesters")
 }
 
 model Class {
-    class_id       Int       @id @default(autoincrement())
-    class_name     String    @db.VarChar(100)
-    school_year_id Int
-    age_group      String?   @db.VarChar(30)
-    room           String?   @db.VarChar(50)
-    created_at     DateTime  @default(now())
-    deleted_at     DateTime?
+  class_id       Int       @id @default(autoincrement())
+  class_name     String    @db.VarChar(100)
+  school_year_id Int
+  age_group      String?   @db.VarChar(30)
+  room           String?   @db.VarChar(50)
+  created_at     DateTime  @default(now())
+  deleted_at     DateTime?
 
-    school_year     SchoolYear          @relation(fields: [school_year_id], references: [school_year_id])
-    teacher_classes TeacherClass[]
-    enrollments     StudentEnrollment[]
+  school_year     SchoolYear          @relation(fields: [school_year_id], references: [school_year_id])
+  teacher_classes TeacherClass[]
+  enrollments     StudentEnrollment[]
 
-    transfers_from     ClassTransferRequest[] @relation("TransferFromClass")
-    transfers_to       ClassTransferRequest[] @relation("TransferToClass")
-    outgoing_transfers OutgoingTransfer[]
-    incoming_transfers IncomingTransfer[]
-    health_assessments HealthAssessment[]
-    nutrition_assessments NutritionAssessment[]
+  transfers_from                ClassTransferRequest[]             @relation("TransferFromClass")
+  transfers_to                  ClassTransferRequest[]             @relation("TransferToClass")
+  outgoing_transfers            OutgoingTransfer[]
+  incoming_transfers            IncomingTransfer[]
+  health_assessments            HealthAssessment[]
+  nutrition_assessments         NutritionAssessment[]
+  assessment_content_requests   AssessmentContentAdditionRequest[]
+  monthly_theme_plans           MonthlyThemePlan[]
+  weekly_development_plans      WeeklyDevelopmentPlan[]
+  daily_development_assessments DailyDevelopmentAssessment[]
+  monthly_development_reports   MonthlyDevelopmentReport[]
+  academic_year_development_reports AcademicYearDevelopmentReport[]
 
-    @@index([school_year_id])
-    @@index([deleted_at])
-    @@map("classes")
+  @@index([school_year_id])
+  @@index([deleted_at])
+  @@map("classes")
 }
 
 model TeacherClass {
-    teacher_class_id Int       @id @default(autoincrement())
-    teacher_id       Int
-    class_id         Int
-    assigned_at      DateTime  @default(now())
-    removed_at       DateTime?
+  teacher_class_id Int       @id @default(autoincrement())
+  teacher_id       Int
+  class_id         Int
+  assigned_at      DateTime  @default(now())
+  removed_at       DateTime?
 
-    teacher Teacher @relation(fields: [teacher_id], references: [teacher_id])
-    class   Class   @relation(fields: [class_id], references: [class_id])
+  teacher Teacher @relation(fields: [teacher_id], references: [teacher_id])
+  class   Class   @relation(fields: [class_id], references: [class_id])
 
-    @@unique([teacher_id, class_id])
-    @@map("teacher_classes")
+  @@unique([teacher_id, class_id])
+  @@map("teacher_classes")
 }
 
 // ─── NHÓM 3: Hồ sơ trẻ ──────────────────────────────────────────────────────
 
 model Student {
-    student_id               Int       @id @default(autoincrement())
-    account_id               Int?      @unique // nullable — tạo khi cấp tài khoản PH
-    student_id_card_number   String    @unique @db.VarChar(20)
-    full_name                String    @db.VarChar(150)
-    date_of_birth            DateTime
-    gender                   String    @db.VarChar(10)
-    grade_level              String?   @db.VarChar(30)
-    student_status           String    @default("Đang học") @db.VarChar(50)
-    enrollment_date          DateTime?
-    new_admission_date       DateTime?
-    is_new_admission         Boolean   @default(false)
-    order_number             Int?
-    ethnicity                String?   @db.VarChar(50)
-    nationality              String?   @db.VarChar(50)
-    religion                 String?   @db.VarChar(50)
-    area_type                String?   @db.VarChar(20)
-    blood_type               String?   @db.VarChar(5)
-    contact_phone            String?   @db.VarChar(20)
-    permanent_province       String?   @db.VarChar(100)
-    permanent_ward           String?   @db.VarChar(100)
-    permanent_address_detail String?   @db.VarChar(500)
-    current_address          String?   @db.VarChar(500)
-    hometown_province        String?   @db.VarChar(100)
-    hometown_ward            String?   @db.VarChar(100)
-    birth_place              String?   @db.VarChar(255)
-    photo_url                String?   @db.VarChar(500)
-    created_by               Int?
-    updated_by               Int?
-    created_at               DateTime  @default(now())
-    updated_at               DateTime  @updatedAt
-    deleted_at               DateTime?
+  student_id               Int       @id @default(autoincrement())
+  account_id               Int?      @unique // nullable — tạo khi cấp tài khoản PH
+  student_id_card_number   String    @unique @db.VarChar(20)
+  full_name                String    @db.VarChar(150)
+  date_of_birth            DateTime
+  gender                   String    @db.VarChar(10)
+  grade_level              String?   @db.VarChar(30)
+  student_status           String    @default("Đang học") @db.VarChar(50)
+  enrollment_date          DateTime?
+  new_admission_date       DateTime?
+  is_new_admission         Boolean   @default(false)
+  order_number             Int?
+  ethnicity                String?   @db.VarChar(50)
+  nationality              String?   @db.VarChar(50)
+  religion                 String?   @db.VarChar(50)
+  area_type                String?   @db.VarChar(20)
+  blood_type               String?   @db.VarChar(5)
+  contact_phone            String?   @db.VarChar(20)
+  permanent_province       String?   @db.VarChar(100)
+  permanent_ward           String?   @db.VarChar(100)
+  permanent_address_detail String?   @db.VarChar(500)
+  current_address          String?   @db.VarChar(500)
+  hometown_province        String?   @db.VarChar(100)
+  hometown_ward            String?   @db.VarChar(100)
+  birth_place              String?   @db.VarChar(255)
+  photo_url                String?   @db.VarChar(500)
+  created_by               Int?
+  updated_by               Int?
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @updatedAt
+  deleted_at               DateTime?
 
-    account            Account?  @relation(fields: [account_id], references: [account_id])
-    created_by_account Account?  @relation("StudentCreatedBy", fields: [created_by], references: [account_id])
-    updated_by_account Account?  @relation("StudentUpdatedBy", fields: [updated_by], references: [account_id])
+  account            Account? @relation(fields: [account_id], references: [account_id])
+  created_by_account Account? @relation("StudentCreatedBy", fields: [created_by], references: [account_id])
+  updated_by_account Account? @relation("StudentUpdatedBy", fields: [updated_by], references: [account_id])
 
-    parents     Parent[]
-    enrollments StudentEnrollment[]
+  parents     Parent[]
+  enrollments StudentEnrollment[]
 
-    class_transfer_requests ClassTransferRequest[]
-    outgoing_transfers      OutgoingTransfer[]
-    incoming_transfers      IncomingTransfer[]
-    health_assessments      HealthAssessment[]
-    nutrition_assessments   NutritionAssessment[]
+  class_transfer_requests       ClassTransferRequest[]
+  outgoing_transfers            OutgoingTransfer[]
+  incoming_transfers            IncomingTransfer[]
+  health_assessments            HealthAssessment[]
+  nutrition_assessments         NutritionAssessment[]
+  academic_year_development_reports AcademicYearDevelopmentReport[]
+  daily_development_assessments DailyDevelopmentAssessment[]
+  monthly_development_reports   MonthlyDevelopmentReport[]
 
-    @@index([deleted_at])
-    @@index([full_name])
-    @@map("students")
+  @@index([deleted_at])
+  @@index([full_name])
+  @@map("students")
 }
 
 // ─── NHÓM 4: Phụ huynh ──────────────────────────────────────────────────────
 
 model Parent {
-    parent_id    Int      @id @default(autoincrement())
-    student_id   Int
-    full_name    String   @db.VarChar(150)
-    phone        String?  @db.VarChar(20)
-    relationship String?  @db.VarChar(50)
-    created_at   DateTime @default(now())
+  parent_id    Int      @id @default(autoincrement())
+  student_id   Int
+  full_name    String   @db.VarChar(150)
+  phone        String?  @db.VarChar(20)
+  relationship String?  @db.VarChar(50)
+  created_at   DateTime @default(now())
 
-    student Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
 
-    @@index([student_id])
-    @@map("parents")
+  @@index([student_id])
+  @@map("parents")
 }
 
 // ─── NHÓM 5: Phân lớp ───────────────────────────────────────────────────────
 
 model StudentEnrollment {
-    enrollment_id  Int       @id @default(autoincrement())
-    student_id     Int
-    school_year_id Int       // always set — source of truth for year
-    class_id       Int?      // nullable — enrolled in year but no class yet
-    grade_level    String?   @db.VarChar(30)
-    enrolled_date  DateTime  @default(now())
-    left_date      DateTime?
-    student_status String    @default("Đang học") @db.VarChar(50)
+  enrollment_id  Int       @id @default(autoincrement())
+  student_id     Int
+  school_year_id Int // always set — source of truth for year
+  class_id       Int? // nullable — enrolled in year but no class yet
+  grade_level    String?   @db.VarChar(30)
+  enrolled_date  DateTime  @default(now())
+  left_date      DateTime?
+  student_status String    @default("Đang học") @db.VarChar(50)
 
-    student     Student    @relation(fields: [student_id], references: [student_id])
-    class       Class?     @relation(fields: [class_id], references: [class_id])
-    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+  student     Student    @relation(fields: [student_id], references: [student_id])
+  class       Class?     @relation(fields: [class_id], references: [class_id])
+  school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
 
-    // Unique enforced via raw SQL with NULLS NOT DISTINCT (PG15+) — see migration
-    @@index([student_id, school_year_id])
-    @@index([class_id])
-    @@map("student_enrollments")
+  // Unique enforced via raw SQL with NULLS NOT DISTINCT (PG15+) — see migration
+  @@index([student_id, school_year_id])
+  @@index([class_id])
+  @@map("student_enrollments")
 }
 
 // ─── NHÓM 6: Chuyển lớp / Chuyển trường ─────────────────────────────────────
 
 model ClassTransferRequest {
-    request_id     Int       @id @default(autoincrement())
-    student_id     Int
-    school_year_id Int
-    semester_id    Int? // resolve từ effective_date — phục vụ giới hạn 2 lần/học kỳ (BR-065)
-    from_class_id  Int
-    to_class_id    Int
-    reason         String    @db.VarChar(500)
-    effective_date DateTime
-    status         String    @default("Pending") @db.VarChar(20) // Pending | Approved | Rejected | Cancelled
-    requested_by   Int
-    reviewed_by    Int?
-    review_note    String?   @db.VarChar(500)
-    reviewed_at    DateTime?
-    applied_at     DateTime? // null = chưa đổi lớp; cron set khi áp dụng (BR-071)
-    created_at     DateTime  @default(now())
-    updated_at     DateTime  @updatedAt
+  request_id     Int       @id @default(autoincrement())
+  student_id     Int
+  school_year_id Int
+  semester_id    Int? // resolve từ effective_date — phục vụ giới hạn 2 lần/học kỳ (BR-065)
+  from_class_id  Int
+  to_class_id    Int
+  reason         String    @db.VarChar(500)
+  effective_date DateTime
+  status         String    @default("Pending") @db.VarChar(20) // Pending | Approved | Rejected | Cancelled
+  requested_by   Int
+  reviewed_by    Int?
+  review_note    String?   @db.VarChar(500)
+  reviewed_at    DateTime?
+  applied_at     DateTime? // null = chưa đổi lớp; cron set khi áp dụng (BR-071)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
 
-    student     Student    @relation(fields: [student_id], references: [student_id])
-    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
-    semester    Semester?  @relation(fields: [semester_id], references: [semester_id])
-    from_class  Class      @relation("TransferFromClass", fields: [from_class_id], references: [class_id])
-    to_class    Class      @relation("TransferToClass", fields: [to_class_id], references: [class_id])
-    requester   Account    @relation("TransferRequestedBy", fields: [requested_by], references: [account_id])
-    reviewer    Account?   @relation("TransferReviewedBy", fields: [reviewed_by], references: [account_id])
+  student     Student    @relation(fields: [student_id], references: [student_id])
+  school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+  semester    Semester?  @relation(fields: [semester_id], references: [semester_id])
+  from_class  Class      @relation("TransferFromClass", fields: [from_class_id], references: [class_id])
+  to_class    Class      @relation("TransferToClass", fields: [to_class_id], references: [class_id])
+  requester   Account    @relation("TransferRequestedBy", fields: [requested_by], references: [account_id])
+  reviewer    Account?   @relation("TransferReviewedBy", fields: [reviewed_by], references: [account_id])
 
-    @@index([student_id])
-    @@index([school_year_id])
-    @@index([status])
-    @@map("class_transfer_requests")
+  @@index([student_id])
+  @@index([school_year_id])
+  @@index([status])
+  @@map("class_transfer_requests")
 }
 
 model OutgoingTransfer {
-    transfer_id        Int       @id @default(autoincrement())
-    student_id         Int
-    school_year_id     Int
-    class_id           Int?
-    destination_school String    @db.VarChar(255)
-    transfer_date      DateTime
-    reason             String?   @db.VarChar(500)
-    note               String?   @db.VarChar(500)
-    status             String    @default("Recorded") @db.VarChar(20) // Recorded | Cancelled
-    cancel_reason      String?   @db.VarChar(500)
-    created_by         Int?
-    updated_by         Int?
-    created_at         DateTime  @default(now())
-    updated_at         DateTime  @updatedAt
-    deleted_at         DateTime?
+  transfer_id        Int       @id @default(autoincrement())
+  student_id         Int
+  school_year_id     Int
+  class_id           Int?
+  destination_school String    @db.VarChar(255)
+  transfer_date      DateTime
+  reason             String?   @db.VarChar(500)
+  note               String?   @db.VarChar(500)
+  status             String    @default("Recorded") @db.VarChar(20) // Recorded | Cancelled
+  cancel_reason      String?   @db.VarChar(500)
+  created_by         Int?
+  updated_by         Int?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
 
-    student     Student    @relation(fields: [student_id], references: [student_id])
-    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
-    class       Class?     @relation(fields: [class_id], references: [class_id])
+  student     Student    @relation(fields: [student_id], references: [student_id])
+  school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+  class       Class?     @relation(fields: [class_id], references: [class_id])
 
-    @@index([student_id])
-    @@index([school_year_id])
-    @@index([deleted_at])
-    @@map("outgoing_transfers")
+  @@index([student_id])
+  @@index([school_year_id])
+  @@index([deleted_at])
+  @@map("outgoing_transfers")
 }
 
 model IncomingTransfer {
-    transfer_id     Int       @id @default(autoincrement())
-    student_id      Int
-    school_year_id  Int
-    class_id        Int?
-    previous_school String    @db.VarChar(255)
-    transfer_date   DateTime
-    reason          String?   @db.VarChar(500)
-    note            String?   @db.VarChar(500)
-    status          String    @default("Recorded") @db.VarChar(20) // Recorded | Cancelled
-    cancel_reason   String?   @db.VarChar(500)
-    created_by      Int?
-    updated_by      Int?
-    created_at      DateTime  @default(now())
-    updated_at      DateTime  @updatedAt
-    deleted_at      DateTime?
+  transfer_id     Int       @id @default(autoincrement())
+  student_id      Int
+  school_year_id  Int
+  class_id        Int?
+  previous_school String    @db.VarChar(255)
+  transfer_date   DateTime
+  reason          String?   @db.VarChar(500)
+  note            String?   @db.VarChar(500)
+  status          String    @default("Recorded") @db.VarChar(20) // Recorded | Cancelled
+  cancel_reason   String?   @db.VarChar(500)
+  created_by      Int?
+  updated_by      Int?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime?
 
-    student     Student    @relation(fields: [student_id], references: [student_id])
-    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
-    class       Class?     @relation(fields: [class_id], references: [class_id])
+  student     Student    @relation(fields: [student_id], references: [student_id])
+  school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+  class       Class?     @relation(fields: [class_id], references: [class_id])
 
-    @@index([student_id])
-    @@index([school_year_id])
-    @@index([deleted_at])
-    @@map("incoming_transfers")
+  @@index([student_id])
+  @@index([school_year_id])
+  @@index([deleted_at])
+  @@map("incoming_transfers")
 }
 
 // ─── NHÓM 7: Sức khỏe & Dinh dưỡng ──────────────────────────────────────────
 
 model HealthAssessment {
-    assessment_id   Int      @id @default(autoincrement())
-    student_id      Int
-    school_year_id  Int
-    class_id        Int? // lớp tại thời điểm đánh giá (BR-105)
-    assessment_date DateTime
-    height_cm       Float? // nullable — bản ghi rỗng tạo từ import dinh dưỡng (BR-138)
-    weight_kg       Float?
-    bmi             Float? // hệ thống tính, không nhập tay (BR-097/098)
-    bmi_z           Float? // Z-score WHO
-    height_z        Float?
-    weight_z        Float?
-    bmi_status      String?  @db.VarChar(50) // phân loại tiếng Việt (BR-110)
-    height_status   String?  @db.VarChar(50)
-    weight_status   String?  @db.VarChar(50)
-    note            String?  @db.VarChar(500)
-    created_by      Int?
-    updated_by      Int?
-    created_at      DateTime @default(now())
-    updated_at      DateTime @updatedAt
+  assessment_id   Int      @id @default(autoincrement())
+  student_id      Int
+  school_year_id  Int
+  class_id        Int? // lớp tại thời điểm đánh giá (BR-105)
+  assessment_date DateTime
+  height_cm       Float? // nullable — bản ghi rỗng tạo từ import dinh dưỡng (BR-138)
+  weight_kg       Float?
+  bmi             Float? // hệ thống tính, không nhập tay (BR-097/098)
+  bmi_z           Float? // Z-score WHO
+  height_z        Float?
+  weight_z        Float?
+  bmi_status      String?  @db.VarChar(50) // phân loại tiếng Việt (BR-110)
+  height_status   String?  @db.VarChar(50)
+  weight_status   String?  @db.VarChar(50)
+  note            String?  @db.VarChar(500)
+  created_by      Int?
+  updated_by      Int?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-    student     Student    @relation(fields: [student_id], references: [student_id])
-    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
-    class       Class?     @relation(fields: [class_id], references: [class_id])
+  student     Student    @relation(fields: [student_id], references: [student_id])
+  school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+  class       Class?     @relation(fields: [class_id], references: [class_id])
 
-    @@unique([student_id, assessment_date]) // BR-090
-    @@index([school_year_id])
-    @@index([class_id])
-    @@map("health_assessments")
+  @@unique([student_id, assessment_date]) // BR-090
+  @@index([school_year_id])
+  @@index([class_id])
+  @@map("health_assessments")
 }
 
 // Đánh giá nuôi dưỡng — standalone, theo từng giai đoạn (đầu năm → cuối năm).
 // Không gắn FK với HealthAssessment; giáo viên xem biểu đồ BMI để tham khảo khi đánh giá.
 model NutritionAssessment {
-    nutrition_id        Int      @id @default(autoincrement())
-    student_id          Int
-    school_year_id      Int
-    class_id            Int?
-    period              String   @db.VarChar(20) // dau_nam | giua_ky_1 | cuoi_ky_1 | dau_ky_2 | giua_ky_2 | cuoi_nam
-    weight_channel      String?  @db.VarChar(50) // null=bình thường | 'Suy dinh dưỡng thể nhẹ cân' | 'Cân nặng cao hơn tuổi'
-    is_stunting         Boolean  @default(false) // SDD thể thấp còi
-    is_severe_stunting  Boolean  @default(false) // SDD thể còi cọc
-    is_obese            Boolean  @default(false) // trẻ bị béo phì
-    note                String?  @db.VarChar(500)
-    created_by          Int?
-    updated_by          Int?
-    created_at          DateTime @default(now())
-    updated_at          DateTime @updatedAt
+  nutrition_id       Int      @id @default(autoincrement())
+  student_id         Int
+  school_year_id     Int
+  class_id           Int?
+  period             String   @db.VarChar(20) // dau_nam | giua_ky_1 | cuoi_ky_1 | dau_ky_2 | giua_ky_2 | cuoi_nam
+  weight_channel     String?  @db.VarChar(50) // null=bình thường | 'Suy dinh dưỡng thể nhẹ cân' | 'Cân nặng cao hơn tuổi'
+  is_stunting        Boolean  @default(false) // SDD thể thấp còi
+  is_severe_stunting Boolean  @default(false) // SDD thể còi cọc
+  is_obese           Boolean  @default(false) // trẻ bị béo phì
+  note               String?  @db.VarChar(500)
+  created_by         Int?
+  updated_by         Int?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
 
-    student     Student    @relation(fields: [student_id], references: [student_id])
-    school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
-    class       Class?     @relation(fields: [class_id], references: [class_id])
+  student     Student    @relation(fields: [student_id], references: [student_id])
+  school_year SchoolYear @relation(fields: [school_year_id], references: [school_year_id])
+  class       Class?     @relation(fields: [class_id], references: [class_id])
 
-    @@unique([student_id, school_year_id, period]) // 1 bản ghi / học sinh / giai đoạn
-    @@index([school_year_id, class_id, period])
-    @@map("nutrition_assessments")
+  @@unique([student_id, school_year_id, period]) // 1 bản ghi / học sinh / giai đoạn
+  @@index([school_year_id, class_id, period])
+  @@map("nutrition_assessments")
+}
+
+// ─── NHÓM 8: Nền tảng đánh giá phát triển ───────────────────────────────────
+
+model AssessmentAgeGroup {
+  assessment_age_group_id Int       @id @default(autoincrement())
+  code                    String    @unique @db.VarChar(50)
+  name_en                 String    @db.VarChar(100)
+  name_vi                 String    @db.VarChar(100)
+  class_group_label       String    @unique @db.VarChar(30)
+  display_order           Int
+  deleted_at              DateTime?
+
+  assessment_topics           AssessmentTopic[]
+  assessment_subjects         AssessmentSubject[]
+  assessment_criteria         AssessmentCriterion[]
+  assessment_content_requests AssessmentContentAdditionRequest[]
+  academic_year_timetables    AcademicYearTimetable[]
+  monthly_theme_plans         MonthlyThemePlan[]
+  weekly_development_plans    WeeklyDevelopmentPlan[]
+  monthlyDevelopmentReports   MonthlyDevelopmentReport[]
+  academicYearDevelopmentReports AcademicYearDevelopmentReport[]
+
+  @@index([deleted_at])
+  @@index([display_order])
+  @@map("assessment_age_groups")
+}
+
+model DevelopmentField {
+  development_field_id Int       @id @default(autoincrement())
+  code                 String    @unique @db.VarChar(50)
+  name_en              String    @db.VarChar(100)
+  name_vi              String    @db.VarChar(100)
+  display_order        Int
+  deleted_at           DateTime?
+
+  assessment_subjects         AssessmentSubject[]
+  assessment_criteria         AssessmentCriterion[]
+  assessment_content_requests AssessmentContentAdditionRequest[]
+
+  @@index([deleted_at])
+  @@index([display_order])
+  @@map("development_fields")
+}
+
+model AssessmentSubject {
+  assessment_subject_id Int       @id @default(autoincrement())
+  assessment_age_group_id Int?
+  development_field_id  Int
+  name                  String    @db.VarChar(150)
+  description           String?   @db.VarChar(500)
+  is_active             Boolean   @default(true)
+  created_by            Int?
+  updated_by            Int?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  deleted_at            DateTime?
+
+  assessment_age_group         AssessmentAgeGroup?                  @relation(fields: [assessment_age_group_id], references: [assessment_age_group_id])
+  development_field             DevelopmentField                   @relation(fields: [development_field_id], references: [development_field_id])
+  assessment_themes             AssessmentTheme[]
+  assessment_topics             AssessmentTopic[]
+  assessment_criteria           AssessmentCriterion[]
+  assessment_content_requests   AssessmentContentAdditionRequest[]
+  academic_year_timetable_items AcademicYearTimetableItem[]
+
+  @@unique([development_field_id, name])
+  @@index([assessment_age_group_id])
+  @@index([development_field_id])
+  @@index([is_active])
+  @@index([deleted_at])
+  @@map("assessment_subjects")
+}
+
+model AssessmentTheme {
+  assessment_theme_id Int       @id @default(autoincrement())
+  assessment_subject_id Int
+  name                String    @db.VarChar(150)
+  description         String?   @db.VarChar(500)
+  is_active           Boolean   @default(true)
+  created_by          Int?
+  updated_by          Int?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  deleted_at          DateTime?
+
+  assessment_subject           AssessmentSubject                  @relation(fields: [assessment_subject_id], references: [assessment_subject_id])
+  assessment_topics            AssessmentTopic[]
+  assessment_criteria          AssessmentCriterion[]
+  assessment_content_requests  AssessmentContentAdditionRequest[]
+  monthlyDevelopmentPlanThemes MonthlyDevelopmentPlanTheme[]
+
+  @@index([assessment_subject_id])
+  @@index([is_active])
+  @@index([deleted_at])
+  @@map("assessment_themes")
+}
+
+model AssessmentTopic {
+  assessment_topic_id     Int       @id @default(autoincrement())
+  assessment_theme_id     Int
+  assessment_age_group_id Int?
+  assessment_subject_id   Int?
+  name                    String    @db.VarChar(150)
+  description             String?   @db.VarChar(500)
+  is_active               Boolean   @default(true)
+  created_by              Int?
+  updated_by              Int?
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  deleted_at              DateTime?
+
+  assessment_theme             AssessmentTheme                    @relation(fields: [assessment_theme_id], references: [assessment_theme_id])
+  assessment_age_group         AssessmentAgeGroup?                @relation(fields: [assessment_age_group_id], references: [assessment_age_group_id])
+  assessment_subject           AssessmentSubject?                 @relation(fields: [assessment_subject_id], references: [assessment_subject_id])
+  assessment_criteria          AssessmentCriterion[]
+  assessment_content_requests  AssessmentContentAdditionRequest[]
+  monthlyDevelopmentPlanTopics MonthlyDevelopmentPlanTopic[]
+
+  @@unique([assessment_theme_id, assessment_age_group_id, assessment_subject_id, name])
+  @@index([assessment_theme_id])
+  @@index([assessment_age_group_id])
+  @@index([assessment_subject_id])
+  @@index([is_active])
+  @@index([deleted_at])
+  @@map("assessment_topics")
+}
+
+model AssessmentCriterion {
+  assessment_criterion_id Int       @id @default(autoincrement())
+  criterion_code          String    @unique @db.VarChar(30)
+  assessment_age_group_id Int
+  development_field_id    Int
+  assessment_subject_id   Int
+  assessment_theme_id     Int
+  assessment_topic_id     Int
+  content                 String    @db.VarChar(1000)
+  description             String?   @db.VarChar(500)
+  is_active               Boolean   @default(true)
+  created_by              Int?
+  updated_by              Int?
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  deleted_at              DateTime?
+
+  assessment_age_group             AssessmentAgeGroup                       @relation(fields: [assessment_age_group_id], references: [assessment_age_group_id])
+  development_field                DevelopmentField                         @relation(fields: [development_field_id], references: [development_field_id])
+  assessment_subject               AssessmentSubject                        @relation(fields: [assessment_subject_id], references: [assessment_subject_id])
+  assessment_theme                 AssessmentTheme                          @relation(fields: [assessment_theme_id], references: [assessment_theme_id])
+  assessment_topic                 AssessmentTopic                          @relation(fields: [assessment_topic_id], references: [assessment_topic_id])
+  assessment_content_requests      AssessmentContentAdditionRequest[]
+  monthlyDevelopmentPlanCriterions MonthlyDevelopmentPlanCriterion[]
+  weeklyDevelopmentPlanCriteria    WeeklyDevelopmentPlanActivityCriterion[]
+  dailyDevelopmentAssessments      DailyDevelopmentAssessment[]
+
+  @@index([assessment_age_group_id])
+  @@index([development_field_id])
+  @@index([assessment_subject_id])
+  @@index([assessment_theme_id])
+  @@index([assessment_topic_id])
+  @@index([is_active])
+  @@index([deleted_at])
+  @@index([assessment_age_group_id, development_field_id, assessment_subject_id, assessment_theme_id, assessment_topic_id])
+  @@map("assessment_criteria")
+}
+
+model AcademicYearTimetable {
+  timetable_id    Int       @id @default(autoincrement())
+  school_year_id  Int
+  age_group_id    Int
+  name            String    @db.VarChar(150)
+  description     String?   @db.VarChar(500)
+  status          String    @default("DRAFT") @db.VarChar(20)
+  created_by      Int
+  created_at      DateTime  @default(now())
+  last_updated_by Int?
+  last_updated_at DateTime?
+  change_reason   String?   @db.VarChar(1000)
+  locked_by       Int?
+  locked_at       DateTime?
+  unlocked_by     Int?
+  unlocked_at     DateTime?
+  unlock_reason   String?   @db.VarChar(1000)
+  deleted_at      DateTime?
+
+  school_year  SchoolYear                  @relation(fields: [school_year_id], references: [school_year_id])
+  age_group    AssessmentAgeGroup          @relation(fields: [age_group_id], references: [assessment_age_group_id])
+  creator      Account                     @relation("AcademicYearTimetableCreatedBy", fields: [created_by], references: [account_id])
+  last_updater Account?                    @relation("AcademicYearTimetableUpdatedBy", fields: [last_updated_by], references: [account_id])
+  locker       Account?                    @relation("AcademicYearTimetableLockedBy", fields: [locked_by], references: [account_id])
+  unlocker     Account?                    @relation("AcademicYearTimetableUnlockedBy", fields: [unlocked_by], references: [account_id])
+  items        AcademicYearTimetableItem[]
+
+  @@index([school_year_id])
+  @@index([age_group_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("academic_year_timetables")
+}
+
+model AcademicYearTimetableItem {
+  timetable_item_id       Int      @id @default(autoincrement())
+  timetable_id            Int
+  week_pattern            String   @db.VarChar(10)
+  day_of_week             String   @db.VarChar(10)
+  session                 String   @db.VarChar(10)
+  display_order           Int
+  activity_type           String   @db.VarChar(30)
+  subject_id              Int?
+  activity_name           String?  @db.VarChar(150)
+  is_theme_based          Boolean  @default(false)
+  is_assessable           Boolean  @default(false)
+  requires_weekly_mapping Boolean  @default(false)
+  note                    String?  @db.VarChar(500)
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  timetable AcademicYearTimetable @relation(fields: [timetable_id], references: [timetable_id])
+  subject   AssessmentSubject?    @relation(fields: [subject_id], references: [assessment_subject_id])
+
+  @@unique([timetable_id, week_pattern, day_of_week, session, display_order])
+  @@index([timetable_id])
+  @@index([subject_id])
+  @@map("academic_year_timetable_items")
+}
+
+model MonthlyThemePlan {
+  monthly_theme_plan_id Int       @id @default(autoincrement())
+  school_year_id        Int
+  class_id              Int
+  age_group_id          Int
+  name                  String    @db.VarChar(150)
+  planning_year         Int
+  planning_month        Int
+  expected_start_date   DateTime
+  expected_end_date     DateTime
+  note                  String?   @db.VarChar(500)
+  status                String    @default("DRAFT") @db.VarChar(20)
+  created_by            Int
+  created_at            DateTime  @default(now())
+  updated_by            Int?
+  ready_by              Int?
+  ready_at              DateTime?
+  updated_at            DateTime  @updatedAt
+  deleted_at            DateTime?
+
+  school_year               SchoolYear                        @relation(fields: [school_year_id], references: [school_year_id])
+  class                     Class                             @relation(fields: [class_id], references: [class_id])
+  age_group                 AssessmentAgeGroup                @relation(fields: [age_group_id], references: [assessment_age_group_id])
+  creator                   Account                           @relation("MonthlyThemePlanCreatedBy", fields: [created_by], references: [account_id])
+  updater                   Account?                          @relation("MonthlyThemePlanUpdatedBy", fields: [updated_by], references: [account_id])
+  ready_user                Account?                          @relation("MonthlyThemePlanReadyBy", fields: [ready_by], references: [account_id])
+  criteria                  MonthlyDevelopmentPlanCriterion[]
+  themes                    MonthlyDevelopmentPlanTheme[]
+  topics                    MonthlyDevelopmentPlanTopic[]
+  weeks                     MonthlyThemePlanWeek[]
+  weekly_plans              WeeklyDevelopmentPlan[]
+
+  @@index([school_year_id])
+  @@index([class_id])
+  @@index([age_group_id])
+  @@index([planning_year, planning_month])
+  @@index([status])
+  @@index([ready_by])
+  @@index([deleted_at])
+  @@map("monthly_theme_plans")
+}
+
+model MonthlyThemePlanWeek {
+  monthly_theme_plan_week_id Int      @id @default(autoincrement())
+  monthly_theme_plan_id      Int
+  week_number                Int
+  start_date                 DateTime
+  end_date                   DateTime
+  display_range              String   @db.VarChar(30)
+  parity                     String   @db.VarChar(10)
+  created_at                 DateTime @default(now())
+
+  plan MonthlyThemePlan @relation(fields: [monthly_theme_plan_id], references: [monthly_theme_plan_id])
+
+  @@unique([monthly_theme_plan_id, week_number])
+  @@index([monthly_theme_plan_id])
+  @@map("monthly_theme_plan_weeks")
+}
+
+model MonthlyDevelopmentPlanCriterion {
+  monthly_development_plan_criterion_id Int      @id @default(autoincrement())
+  monthly_theme_plan_id                 Int
+  criterion_id                          Int
+  created_at                            DateTime @default(now())
+
+  plan            MonthlyThemePlan                         @relation(fields: [monthly_theme_plan_id], references: [monthly_theme_plan_id])
+  criterion       AssessmentCriterion                      @relation(fields: [criterion_id], references: [assessment_criterion_id])
+  weekly_criteria WeeklyDevelopmentPlanActivityCriterion[]
+
+  @@unique([monthly_theme_plan_id, criterion_id])
+  @@index([monthly_theme_plan_id])
+  @@index([criterion_id])
+  @@map("monthly_development_plan_criteria")
+}
+
+model MonthlyDevelopmentPlanTheme {
+  monthly_development_plan_theme_id Int      @id @default(autoincrement())
+  monthly_theme_plan_id             Int
+  theme_id                          Int
+  created_at                        DateTime @default(now())
+
+  plan  MonthlyThemePlan @relation(fields: [monthly_theme_plan_id], references: [monthly_theme_plan_id])
+  theme AssessmentTheme  @relation(fields: [theme_id], references: [assessment_theme_id])
+
+  @@unique([monthly_theme_plan_id, theme_id])
+  @@index([monthly_theme_plan_id])
+  @@index([theme_id])
+  @@map("monthly_development_plan_themes")
+}
+
+model MonthlyDevelopmentPlanTopic {
+  monthly_development_plan_topic_id Int      @id @default(autoincrement())
+  monthly_theme_plan_id             Int
+  topic_id                          Int
+  created_at                        DateTime @default(now())
+
+  plan  MonthlyThemePlan @relation(fields: [monthly_theme_plan_id], references: [monthly_theme_plan_id])
+  topic AssessmentTopic  @relation(fields: [topic_id], references: [assessment_topic_id])
+
+  @@unique([monthly_theme_plan_id, topic_id])
+  @@index([monthly_theme_plan_id])
+  @@index([topic_id])
+  @@map("monthly_development_plan_topics")
+}
+
+model WeeklyDevelopmentPlan {
+  weekly_development_plan_id Int       @id @default(autoincrement())
+  school_year_id             Int
+  class_id                   Int
+  age_group_id               Int
+  monthly_theme_plan_id      Int
+  planning_year              Int
+  planning_month             Int
+  week_number                Int
+  start_date                 DateTime
+  end_date                   DateTime
+  display_range              String    @db.VarChar(30)
+  parity                     String    @db.VarChar(10)
+  status                     String    @default("DRAFT") @db.VarChar(20)
+  note                       String?   @db.VarChar(500)
+  created_by                 Int
+  created_at                 DateTime  @default(now())
+  updated_by                 Int?
+  updated_at                 DateTime  @updatedAt
+  ready_by                   Int?
+  ready_at                   DateTime?
+  deleted_at                 DateTime?
+
+  school_year        SchoolYear                      @relation(fields: [school_year_id], references: [school_year_id])
+  class              Class                           @relation(fields: [class_id], references: [class_id])
+  age_group          AssessmentAgeGroup              @relation(fields: [age_group_id], references: [assessment_age_group_id])
+  monthly_theme_plan MonthlyThemePlan                @relation(fields: [monthly_theme_plan_id], references: [monthly_theme_plan_id])
+  creator            Account                         @relation("WeeklyDevelopmentPlanCreatedBy", fields: [created_by], references: [account_id])
+  updater            Account?                        @relation("WeeklyDevelopmentPlanUpdatedBy", fields: [updated_by], references: [account_id])
+  ready_user         Account?                        @relation("WeeklyDevelopmentPlanReadyBy", fields: [ready_by], references: [account_id])
+  activities         WeeklyDevelopmentPlanActivity[]
+  daily_assessments  DailyDevelopmentAssessment[]
+
+  @@unique([class_id, school_year_id, planning_year, planning_month, week_number, deleted_at])
+  @@index([school_year_id])
+  @@index([class_id])
+  @@index([age_group_id])
+  @@index([monthly_theme_plan_id])
+  @@index([planning_year, planning_month, week_number])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("weekly_development_plans")
+}
+
+model WeeklyDevelopmentPlanActivity {
+  weekly_development_plan_activity_id Int      @id @default(autoincrement())
+  weekly_development_plan_id          Int
+  source_timetable_item_id            Int?
+  day_of_week                         String   @db.VarChar(10)
+  activity_date                       DateTime
+  session                             String   @db.VarChar(10)
+  display_order                       Int
+  activity_type                       String   @db.VarChar(30)
+  subject_id                          Int?
+  subject_name_snapshot               String?  @db.VarChar(150)
+  development_field_id                Int?
+  development_field_name_snapshot     String?  @db.VarChar(100)
+  activity_name_snapshot              String?  @db.VarChar(150)
+  note_snapshot                       String?  @db.VarChar(500)
+  created_at                          DateTime @default(now())
+
+  weekly_plan       WeeklyDevelopmentPlan                    @relation(fields: [weekly_development_plan_id], references: [weekly_development_plan_id])
+  criteria          WeeklyDevelopmentPlanActivityCriterion[]
+  daily_assessments DailyDevelopmentAssessment[]
+
+  @@index([weekly_development_plan_id])
+  @@index([source_timetable_item_id])
+  @@index([day_of_week, session])
+  @@map("weekly_development_plan_activities")
+}
+
+model WeeklyDevelopmentPlanActivityCriterion {
+  weekly_development_plan_activity_criterion_id Int      @id @default(autoincrement())
+  weekly_development_plan_activity_id           Int
+  monthly_theme_plan_criterion_id               Int
+  criterion_id                                  Int
+  topic_id                                      Int
+  subject_id                                    Int
+  development_field_id                          Int
+  theme_id                                      Int
+  created_at                                    DateTime @default(now())
+
+  activity             WeeklyDevelopmentPlanActivity   @relation(fields: [weekly_development_plan_activity_id], references: [weekly_development_plan_activity_id])
+  monthlyPlanCriterion MonthlyDevelopmentPlanCriterion @relation(fields: [monthly_theme_plan_criterion_id], references: [monthly_development_plan_criterion_id])
+  criterion            AssessmentCriterion             @relation(fields: [criterion_id], references: [assessment_criterion_id])
+
+  @@unique([weekly_development_plan_activity_id, criterion_id])
+  @@index([weekly_development_plan_activity_id])
+  @@index([monthly_theme_plan_criterion_id])
+  @@index([criterion_id])
+  @@map("weekly_development_plan_activity_criteria")
+}
+
+model DailyDevelopmentAssessment {
+  daily_development_assessment_id     Int       @id @default(autoincrement())
+  school_year_id                      Int
+  class_id                            Int
+  student_id                          Int
+  weekly_development_plan_id          Int
+  weekly_development_plan_activity_id Int
+  activity_date                       DateTime
+  criterion_id                        Int
+  result                              String    @db.VarChar(20)
+  note                                String?   @db.VarChar(500)
+  assessed_by                         Int
+  assessed_at                         DateTime  @default(now())
+  updated_by                          Int?
+  updated_at                          DateTime  @updatedAt
+  deleted_at                          DateTime?
+
+  school_year SchoolYear                    @relation(fields: [school_year_id], references: [school_year_id])
+  class       Class                         @relation(fields: [class_id], references: [class_id])
+  student     Student                       @relation(fields: [student_id], references: [student_id])
+  weekly_plan WeeklyDevelopmentPlan         @relation(fields: [weekly_development_plan_id], references: [weekly_development_plan_id])
+  activity    WeeklyDevelopmentPlanActivity @relation(fields: [weekly_development_plan_activity_id], references: [weekly_development_plan_activity_id])
+  criterion   AssessmentCriterion           @relation(fields: [criterion_id], references: [assessment_criterion_id])
+  assessor    Account                       @relation("DailyDevelopmentAssessmentAssessedBy", fields: [assessed_by], references: [account_id])
+  updater     Account?                      @relation("DailyDevelopmentAssessmentUpdatedBy", fields: [updated_by], references: [account_id])
+
+  @@unique([student_id, weekly_development_plan_activity_id, criterion_id])
+  @@index([school_year_id])
+  @@index([class_id])
+  @@index([weekly_development_plan_id])
+  @@index([weekly_development_plan_activity_id])
+  @@index([criterion_id])
+  @@index([assessed_by])
+  @@index([deleted_at])
+  @@map("daily_development_assessments")
+}
+
+model MonthlyDevelopmentReport {
+  monthly_development_report_id Int       @id @default(autoincrement())
+  school_year_id                Int
+  class_id                      Int
+  age_group_id                  Int
+  student_id                    Int
+  planning_year                 Int
+  planning_month                Int
+  status                        String    @default("DRAFT") @db.VarChar(20)
+  teacher_comment               String?   @db.VarChar(2000)
+  strength_note                 String?   @db.VarChar(2000)
+  improvement_note              String?   @db.VarChar(2000)
+  summary_snapshot              Json?
+  created_by                    Int
+  created_at                    DateTime  @default(now())
+  updated_by                    Int?
+  updated_at                    DateTime  @updatedAt
+  ready_by                      Int?
+  ready_at                      DateTime?
+  deleted_at                    DateTime?
+
+  school_year                           SchoolYear         @relation(fields: [school_year_id], references: [school_year_id])
+  class                                 Class              @relation(fields: [class_id], references: [class_id])
+  age_group                             AssessmentAgeGroup @relation(fields: [age_group_id], references: [assessment_age_group_id])
+  student                               Student            @relation(fields: [student_id], references: [student_id])
+  creator                               Account            @relation("MonthlyDevelopmentReportCreatedBy", fields: [created_by], references: [account_id])
+  updater                               Account?           @relation("MonthlyDevelopmentReportUpdatedBy", fields: [updated_by], references: [account_id])
+  ready_user                            Account?           @relation("MonthlyDevelopmentReportReadyBy", fields: [ready_by], references: [account_id])
+  academic_year_sources                 AcademicYearDevelopmentReportSource[]
+
+  @@unique([school_year_id, class_id, student_id, planning_year, planning_month])
+  @@index([school_year_id])
+  @@index([class_id])
+  @@index([age_group_id])
+  @@index([student_id])
+  @@index([planning_year, planning_month])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("monthly_development_reports")
+}
+
+model AcademicYearDevelopmentReport {
+  academic_year_development_report_id Int       @id @default(autoincrement())
+  school_year_id                      Int
+  class_id                            Int
+  age_group_id                        Int
+  student_id                          Int
+  status                              String    @default("DRAFT") @db.VarChar(20)
+  teacher_comment                     String?   @db.VarChar(2000)
+  strength_note                       String?   @db.VarChar(2000)
+  improvement_note                    String?   @db.VarChar(2000)
+  next_year_support_note              String?   @db.VarChar(2000)
+  summary_snapshot                    Json?
+  created_by                          Int
+  created_at                          DateTime  @default(now())
+  updated_by                          Int?
+  updated_at                          DateTime  @updatedAt
+  ready_by                            Int?
+  ready_at                            DateTime?
+  deleted_at                          DateTime?
+
+  school_year SchoolYear         @relation(fields: [school_year_id], references: [school_year_id])
+  class       Class              @relation(fields: [class_id], references: [class_id])
+  age_group   AssessmentAgeGroup @relation(fields: [age_group_id], references: [assessment_age_group_id])
+  student     Student            @relation(fields: [student_id], references: [student_id])
+  creator     Account            @relation("AcademicYearDevelopmentReportCreatedBy", fields: [created_by], references: [account_id])
+  updater     Account?           @relation("AcademicYearDevelopmentReportUpdatedBy", fields: [updated_by], references: [account_id])
+  ready_user  Account?           @relation("AcademicYearDevelopmentReportReadyBy", fields: [ready_by], references: [account_id])
+  sources     AcademicYearDevelopmentReportSource[]
+
+  @@unique([school_year_id, class_id, student_id])
+  @@index([school_year_id])
+  @@index([class_id])
+  @@index([age_group_id])
+  @@index([student_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("academic_year_development_reports")
+}
+
+model AcademicYearDevelopmentReportSource {
+  academic_year_development_report_source_id Int      @id @default(autoincrement())
+  academic_year_development_report_id        Int
+  monthly_development_report_id              Int
+  planning_year                              Int
+  planning_month                             Int
+  included_at                                DateTime @default(now())
+
+  report         AcademicYearDevelopmentReport @relation(fields: [academic_year_development_report_id], references: [academic_year_development_report_id], onDelete: Cascade)
+  monthly_report MonthlyDevelopmentReport     @relation(fields: [monthly_development_report_id], references: [monthly_development_report_id])
+
+  @@unique([academic_year_development_report_id, monthly_development_report_id])
+  @@index([academic_year_development_report_id])
+  @@index([monthly_development_report_id])
+  @@map("academic_year_development_report_sources")
+}
+
+model AssessmentContentAdditionRequest {
+  request_id           Int       @id @default(autoincrement())
+  request_code         String    @unique @db.VarChar(30)
+  request_type         String    @db.VarChar(30)
+  status               String    @default("PENDING") @db.VarChar(20)
+  proposed_name        String?   @db.VarChar(1000)
+  proposed_description String?   @db.VarChar(500)
+  proposed_reason      String?   @db.VarChar(1000)
+  proposed_criteria    Json?
+  age_group_id         Int?
+  development_field_id Int?
+  subject_id           Int?
+  theme_id             Int?
+  topic_id             Int?
+  criterion_id         Int?
+  requester_id         Int
+  requester_teacher_id Int
+  requester_class_id   Int?
+  reviewed_by          Int?
+  reviewed_at          DateTime?
+  review_note          String?   @db.VarChar(1000)
+  cancelled_at         DateTime?
+  cancelled_by         Int?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  age_group         AssessmentAgeGroup?                     @relation(fields: [age_group_id], references: [assessment_age_group_id])
+  development_field DevelopmentField?                       @relation(fields: [development_field_id], references: [development_field_id])
+  subject           AssessmentSubject?                      @relation(fields: [subject_id], references: [assessment_subject_id])
+  theme             AssessmentTheme?                        @relation(fields: [theme_id], references: [assessment_theme_id])
+  topic             AssessmentTopic?                        @relation(fields: [topic_id], references: [assessment_topic_id])
+  criterion         AssessmentCriterion?                    @relation(fields: [criterion_id], references: [assessment_criterion_id])
+  requester         Account                                 @relation("AssessmentContentRequestRequester", fields: [requester_id], references: [account_id])
+  requester_teacher Teacher                                 @relation(fields: [requester_teacher_id], references: [teacher_id])
+  requester_class   Class?                                  @relation(fields: [requester_class_id], references: [class_id])
+  reviewer          Account?                                @relation("AssessmentContentRequestReviewer", fields: [reviewed_by], references: [account_id])
+  canceller         Account?                                @relation("AssessmentContentRequestCanceller", fields: [cancelled_by], references: [account_id])
+  created_records   AssessmentContentRequestCreatedRecord[]
+
+  @@index([request_type])
+  @@index([status])
+  @@index([requester_id])
+  @@index([requester_teacher_id])
+  @@index([requester_class_id])
+  @@index([age_group_id])
+  @@index([development_field_id])
+  @@index([subject_id])
+  @@index([theme_id])
+  @@index([topic_id])
+  @@index([criterion_id])
+  @@index([created_at])
+  @@map("assessment_content_addition_requests")
+}
+
+model AssessmentContentRequestCreatedRecord {
+  id          Int      @id @default(autoincrement())
+  request_id  Int
+  record_type String   @db.VarChar(30)
+  record_id   Int
+  created_at  DateTime @default(now())
+
+  request AssessmentContentAdditionRequest @relation(fields: [request_id], references: [request_id], onDelete: Cascade)
+
+  @@index([request_id])
+  @@index([record_type, record_id])
+  @@map("assessment_content_request_created_records")
 }
