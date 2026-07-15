@@ -1,0 +1,5 @@
+-- Legacy Iter 3 baseline.
+--
+-- This migration was applied to an existing VPS before this repository history
+-- was restored. The compatibility migration 20260704040000 reconciles its
+-- schema with the current assessment-planning model without discarding data.
