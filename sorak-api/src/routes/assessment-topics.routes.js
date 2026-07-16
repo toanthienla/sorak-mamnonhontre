@@ -4,12 +4,12 @@ import { validate } from '../middlewares/validate.js';
 import { authMiddleware } from '../middlewares/auth.js';
 import { requireRoles } from '../middlewares/roles.js';
 import {
-  createAssessmentThemeSchema,
-  listAssessmentThemeQuery,
-  updateAssessmentThemeSchema,
-  updateAssessmentThemeStatusSchema,
-} from '../validators/assessment-themes.schema.js';
-import * as ctrl from '../controllers/assessment-themes.controller.js';
+  createAssessmentTopicSchema,
+  listAssessmentTopicQuery,
+  updateAssessmentTopicSchema,
+  updateAssessmentTopicStatusSchema,
+} from '../validators/assessment-topics.schema.js';
+import * as ctrl from '../controllers/assessment-topics.controller.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -17,26 +17,26 @@ router.use(authMiddleware);
 router.get(
   '/',
   requireRoles('PRINCIPAL', 'TEACHER'),
-  validate(listAssessmentThemeQuery, 'query'),
+  validate(listAssessmentTopicQuery, 'query'),
   asyncHandler(ctrl.findAll),
 );
 router.get('/:id', requireRoles('PRINCIPAL', 'TEACHER'), asyncHandler(ctrl.findOne));
 router.post(
   '/',
   requireRoles('PRINCIPAL'),
-  validate(createAssessmentThemeSchema),
+  validate(createAssessmentTopicSchema),
   asyncHandler(ctrl.create),
 );
 router.patch(
   '/:id',
   requireRoles('PRINCIPAL'),
-  validate(updateAssessmentThemeSchema),
+  validate(updateAssessmentTopicSchema),
   asyncHandler(ctrl.update),
 );
 router.patch(
   '/:id/status',
   requireRoles('PRINCIPAL'),
-  validate(updateAssessmentThemeStatusSchema),
+  validate(updateAssessmentTopicStatusSchema),
   asyncHandler(ctrl.setStatus),
 );
 router.delete('/:id', requireRoles('PRINCIPAL'), asyncHandler(ctrl.remove));

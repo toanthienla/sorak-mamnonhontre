@@ -1,4 +1,4 @@
-import * as svc from '../services/assessment-themes.service.js';
+import * as svc from '../services/assessment-topics.service.js';
 
 export async function findAll(req, res) {
   res.paginated(await svc.findAll(req.query));
